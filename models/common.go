@@ -16,6 +16,7 @@ var (
 	//articleColl    = "articles"
 	reviewColl = "reviews"
 	fileColl   = "files"
+	eventColl  = "events"
 )
 
 func getSession() *mgo.Session {

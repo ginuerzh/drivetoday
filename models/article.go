@@ -19,8 +19,7 @@ type Article struct {
 	PubTime    time.Time `bson:"pub_time"`
 	Content    []string
 	Thumbs     []string `bson:",omitempty"`
-	//Reviews    int
-	Image string
+	Image      string
 }
 
 func (this *Article) findOne(query interface{}) (bool, int) {
@@ -102,8 +101,8 @@ func GetArticleList(skip, limit int) (articles []Article, errId int) {
 	return
 }
 
-func GetArticleWithoutContent(skip, limit int) (total int, articles []Article, errId int) {
-	err := search(articleColl, nil, bson.M{"content": false}, skip, limit, []string{"-pub_time"}, &total, &articles)
+func GetBriefArticles(skip, limit int) (total int, articles []Article, errId int) {
+	err := search(articleColl, nil, bson.M{"content": false, "thumbs": false}, skip, limit, []string{"-pub_time"}, &total, &articles)
 	if err != nil {
 		return 0, nil, errors.DbError
 	}

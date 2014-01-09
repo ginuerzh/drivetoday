@@ -164,7 +164,7 @@ func (this *User) CheckExists() (bool, int) {
 }
 
 func (this *User) FindByAccessToken(accessToken string) (bool, int) {
-	d, _ := time.ParseDuration("-10m")
+	d, _ := time.ParseDuration("-30h") // auto logout after 30 minutes since last access
 
 	return this.findOne(
 		bson.M{
@@ -203,5 +203,53 @@ func (this *User) Reviews(skip, limit int) (total int, reviews []Review, errId i
 	}
 
 	errId = errors.NoError
+	return
+}
+
+func (this *User) Events(skip, limit int) (total int, events []Event, errId int) {
+	err := search(eventColl, bson.M{"owner": this.Userid}, nil, skip, limit, []string{"-ctime"}, &total, &events)
+	if err != nil {
+		return 0, nil, errors.DbError
+	}
+
+	errId = errors.NoError
+	return
+}
+
+func (this *User) NewEventCount() (count int, errId int) {
+	err := search(eventColl, bson.M{"owner": this.Userid, "read": false}, nil, 0, 0, nil, &count, nil)
+	if err != nil {
+		return 0, errors.DbError
+	}
+
+	errId = errors.NoError
+	return
+}
+
+func (this *User) ReadEvents(ids []string) (count int, errId int) {
+	errId = errors.NoError
+
+	selector := bson.M{
+		"event_id": bson.M{
+			"$in": ids,
+		},
+	}
+
+	change := bson.M{
+		"$set": bson.M{
+			"read": true,
+		},
+	}
+
+	update := func(c *mgo.Collection) error {
+		info, err := c.UpdateAll(selector, change)
+		count = info.Updated
+		return err
+	}
+
+	if err := withCollection(eventColl, update); err != nil {
+		errId = errors.DbError
+	}
+
 	return
 }

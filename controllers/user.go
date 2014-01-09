@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"github.com/codegangsta/martini"
 	"github.com/codegangsta/martini-contrib/binding"
-	"github.com/garyburd/redigo/redis"
 	"github.com/ginuerzh/drivetoday/errors"
 	"github.com/ginuerzh/drivetoday/models"
 	"io/ioutil"
@@ -39,7 +38,7 @@ func BindUserApi(m *martini.ClassicMartini) {
 	m.Post(UserLogoutV1Uri, binding.Json(logoutForm{}), ErrorHandler, logoutHandler)
 	m.Get(UserInfoV1Uri, binding.Form(getInfoForm{}), ErrorHandler, userInfoHandler)
 	m.Post(SetProfileV1Uri, binding.Json(setProfileForm{}), ErrorHandler, setProfileHandler)
-	m.Get(UserNewsV1Uri, binding.Form(userNewsForm{}), ErrorHandler, userNewsHandler)
+	//m.Get(UserNewsV1Uri, binding.Form(userNewsForm{}), ErrorHandler, userNewsHandler)
 }
 
 // user register parameter
@@ -53,7 +52,7 @@ type userRegForm struct {
 func (form userRegForm) Validate(errors *binding.Errors, req *http.Request) {
 }
 
-func registerHandler(request *http.Request, resp http.ResponseWriter, form userRegForm) {
+func registerHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form userRegForm) {
 	var user models.User
 
 	user.Userid = strings.ToLower(form.Email)
@@ -75,6 +74,8 @@ func registerHandler(request *http.Request, resp http.ResponseWriter, form userR
 	} else {
 		data := map[string]string{"access_token": user.AccessToken}
 		writeResponse(request.RequestURI, resp, data, err)
+
+		redis.LogRegister(user.Userid)
 	}
 }
 
@@ -251,14 +252,15 @@ func (form *userNewsForm) Validate(e *binding.Errors, req *http.Request) {
 	form.user = userAuth(form.AccessToken, e)
 }
 
-func userNewsHandler(request *http.Request, resp http.ResponseWriter, pool *redis.Pool, form userNewsForm) {
-	respData := make(map[string]interface{})
+func userNewsHandler(request *http.Request, resp http.ResponseWriter, form userNewsForm) {
+	/*
+		respData := make(map[string]interface{})
 
-	conn := pool.Get()
-	defer conn.Close()
+		conn := pool.Get()
+		defer conn.Close()
 
-	respData["new_thumb_count"], _ = redis.Int(conn.Do("LLEN", "drivetoday:user:review:thumbs:"+form.user.Userid))
-	respData["new_review_count"], _ = redis.Int(conn.Do("LLEN", "drivetoday:user:mentions:"+form.user.Userid))
-
-	writeResponse(request.RequestURI, resp, respData, errors.NoError)
+		respData["new_thumb_count"], _ = redis.Int(conn.Do("LLEN", "drivetoday:user:review:thumbs:"+form.user.Userid))
+		respData["new_review_count"], _ = redis.Int(conn.Do("LLEN", "drivetoday:user:mentions:"+form.user.Userid))
+	*/
+	writeResponse(request.RequestURI, resp, nil, errors.NoError)
 }

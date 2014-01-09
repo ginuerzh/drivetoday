@@ -51,6 +51,8 @@ func fileUploadHandler(request *http.Request, resp http.ResponseWriter, form fil
 	}
 	log.Println(fid, size, header.Filename, header.Header.Get("Content-Type"))
 
+	filedata.Seek(0, 0)
+
 	var file models.File
 	file.Fid = fid
 	file.Name = header.Filename
@@ -65,7 +67,7 @@ func fileUploadHandler(request *http.Request, resp http.ResponseWriter, form fil
 	}
 
 	//url, _ := weedo.GetUrl(fid)
-	respData := map[string]interface{}{"fileid": fid, "fileurl": imageUrl(fid)}
+	respData := map[string]interface{}{"fileid": fid, "fileurl": imageUrl(fid, 0)}
 
 	writeResponse(request.RequestURI, resp, respData, errors.NoError)
 }
@@ -100,7 +102,7 @@ func imageDownloadHandler(request *http.Request, resp http.ResponseWriter, form 
 */
 
 func imageDownloadHandler(request *http.Request, resp http.ResponseWriter, form imageDownloadForm) {
-	url := imageUrl(form.ImageId)
+	url := imageUrl(form.ImageId, ImageOriginal)
 
 	respData := map[string]string{"image_url": url}
 	writeResponse(request.RequestURI, resp, respData, errors.NoError)
@@ -119,12 +121,16 @@ func (form *fileDeleteForm) Validate(e *binding.Errors, req *http.Request) {
 func fileDeleteHandler(request *http.Request, resp http.ResponseWriter, form fileDeleteForm) {
 	var file models.File
 
-	file.Fid = form.Fid
-	if yes, err := file.OwnedBy(form.user.Userid); !yes {
+	if find, err := file.FindByFid(form.Fid); !find {
 		if err == errors.NoError {
 			err = errors.FileNotFoundError
 		}
 		writeResponse(request.RequestURI, resp, nil, err)
+		return
+	}
+
+	if file.Owner != form.user.Userid {
+		writeResponse(request.RequestURI, resp, nil, errors.FileNotFoundError)
 		return
 	}
 

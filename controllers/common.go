@@ -13,15 +13,26 @@ import (
 	"github.com/nu7hatch/gouuid"
 	"io"
 	//"io/ioutil"
-	//"log"
 	"github.com/ginuerzh/weedo"
+	//"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 const (
 	TimeFormat      = "2006-01-02 15:04:05"
 	DefaultPageSize = 10
+)
+
+type ImageSize int
+
+const (
+	ImageOriginal ImageSize = iota
+	ImageThumbnail
+	ImageBig
+	ImageMedium
+	ImageSmall
 )
 
 type response struct {
@@ -100,9 +111,9 @@ func userAuth(accessToken string, e *binding.Errors) (user models.User) {
 	return
 }
 
-func imageUrl(fid string) string {
+func imageUrl(fid string, size ImageSize) string {
 	var url string
-	id, key, cookie, err := weedo.ParseFid(fid)
+	id, _, _, err := weedo.ParseFid(fid)
 	if err != nil {
 		return url
 	}
@@ -110,6 +121,9 @@ func imageUrl(fid string) string {
 		return url
 	}
 
-	return "http://" + url + "/" + strconv.FormatUint(id, 10) + "/" +
-		strconv.FormatUint(key, 16) + strconv.FormatUint(cookie, 16) + ".jpg"
+	s := strings.Split(fid, ",")
+	if size == ImageOriginal {
+		return "http://" + url + "/" + s[0] + "/" + s[1] + ".jpg"
+	}
+	return "http://" + url + "/" + s[0] + "/" + s[1] + "_" + strconv.Itoa(int(size)) + ".jpg"
 }

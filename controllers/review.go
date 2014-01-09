@@ -4,11 +4,10 @@ package controllers
 import (
 	"github.com/codegangsta/martini"
 	"github.com/codegangsta/martini-contrib/binding"
-	"github.com/garyburd/redigo/redis"
 	"github.com/ginuerzh/drivetoday/errors"
 	"github.com/ginuerzh/drivetoday/models"
 	"labix.org/v2/mgo/bson"
-	"log"
+	//"log"
 	"net/http"
 	"strings"
 	"time"
@@ -124,7 +123,7 @@ func findMentions(review string) []string {
 	return mentions
 }
 
-func newReviewHandler(request *http.Request, resp http.ResponseWriter, pool *redis.Pool, form newReviewForm) {
+func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form newReviewForm) {
 	var review models.Review
 
 	review.ArticleId = form.ArticleId
@@ -148,8 +147,8 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, pool *red
 
 	writeResponse(request.RequestURI, resp, jsonStruct, err)
 
-	conn := pool.Get()
-	defer conn.Close()
+	redis.LogArticleReview(form.ArticleId)
+
 	for _, mention := range findMentions(review.Content) {
 		nickname := strings.TrimLeft(mention, "@")
 		user := models.User{}
@@ -157,15 +156,23 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, pool *red
 			continue
 		}
 
-		conn.Send("RPUSH", "drivetoday:user:mentions:"+user.Userid, form.User.Nickname)
-		log.Println("mention:", mention)
-	}
-	if _, err := conn.Do("EXEC"); err != nil {
-		log.Println(err)
+		event := models.Event{}
+		event.Type = "review"
+		event.Ctime = time.Now()
+		event.ArticleId = form.ArticleId
+		event.User = form.User.Userid
+		event.Owner = user.Userid
+		event.Read = false
+		event.Message = nickname + "在一条评论中提到了你！"
+
+		if err := event.Save(); err == errors.NoError {
+			redis.LogUserMessages(event.Owner, event.Json())
+		}
 	}
 }
 
 type reviewThumbForm struct {
+	ArticleId   string      `form:"article_id" json:"article_id" binding:"required"`
 	ReviewId    string      `form:"review_id" json:"review_id" binding:"required"`
 	Status      bool        `form:"thumb_status" json:"thumb_status"`
 	AccessToken string      `form:"access_token" json:"access_token" binding:"required"`
@@ -180,7 +187,7 @@ func (form *reviewThumbForm) Validate(e *binding.Errors, req *http.Request) {
 	form.User = userAuth(form.AccessToken, e)
 }
 
-func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, pool *redis.Pool, form reviewThumbForm) {
+func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form reviewThumbForm) {
 	var review models.Review
 
 	if find, err := review.FindById(form.ReviewId); !find {
@@ -195,14 +202,28 @@ func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, pool
 
 	writeResponse(request.RequestURI, resp, nil, err)
 
-	conn := pool.Get()
-	defer conn.Close()
-	if err != errors.NoError && form.Status {
-		conn.Send("RPUSH", "drivetoday:user:review:thumbs:"+review.Userid, form.User.Nickname)
+	event := models.Event{}
+	event.Type = "thumb"
+	event.Ctime = time.Now()
+	event.ArticleId = form.ArticleId
+	event.User = form.User.Userid
+	event.Owner = review.Userid
+	event.Read = false
+	event.Message = form.User.Nickname + "赞了你的评论!"
+	if err := event.Save(); err == errors.NoError {
+		redis.LogUserMessages(event.Owner, event.Json())
 	}
-	if _, err := conn.Do("EXEC"); err != nil {
-		log.Println(err)
-	}
+
+	/*
+		conn := pool.Get()
+		defer conn.Close()
+		if err != errors.NoError && form.Status {
+			conn.Send("RPUSH", "drivetoday:user:review:thumbs:"+review.Userid, form.User.Nickname)
+		}
+		if _, err := conn.Do("EXEC"); err != nil {
+			log.Println(err)
+		}
+	*/
 }
 
 func checkReviewThumbHandler(request *http.Request, resp http.ResponseWriter, form reviewThumbForm) {

@@ -2,11 +2,13 @@
 package controllers
 
 import (
+	"encoding/json"
 	"github.com/codegangsta/martini"
 	"github.com/codegangsta/martini-contrib/binding"
 	"github.com/ginuerzh/drivetoday/errors"
 	"github.com/ginuerzh/drivetoday/models"
 	"labix.org/v2/mgo/bson"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -38,18 +40,19 @@ type contentObject struct {
 }
 
 type articleJsonStruct struct {
+	Id      string          `json:"article_id"`
 	Title   string          `json:"title"`
 	Source  string          `json:"source"`
-	Url     string          `json:"url_link"`
+	Url     string          `json:"src_link"`
 	PubTime string          `json:"publish_time"`
 	Thumbs  int             `json:"thumb_count"`
-	Reviews int             `json:"review_count"`
+	Reviews int             `json:"comment_count"`
 	Image   string          `json:"first_image"`
 	Content []contentObject `json:"content"`
 }
 
-func articleListHandler(request *http.Request, resp http.ResponseWriter, form articleListForm) {
-	total, articles, err := models.GetArticleWithoutContent(DefaultPageSize*form.PageNumber, DefaultPageSize)
+func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleListForm) {
+	total, articles, err := models.GetBriefArticles(DefaultPageSize*form.PageNumber, DefaultPageSize)
 	if err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)
 		return
@@ -57,13 +60,14 @@ func articleListHandler(request *http.Request, resp http.ResponseWriter, form ar
 
 	jsonStructs := make([]articleJsonStruct, len(articles))
 	for i, _ := range articles {
+		jsonStructs[i].Id = articles[i].Id.Hex()
 		jsonStructs[i].Title = articles[i].Title
 		jsonStructs[i].Source = articles[i].Source
 		jsonStructs[i].Url = articles[i].Url
 		jsonStructs[i].PubTime = articles[i].PubTime.Format(TimeFormat)
-		jsonStructs[i].Thumbs = len(articles[i].Thumbs)
+		jsonStructs[i].Thumbs = redis.ArticleThumbCount(articles[i].Id.Hex())
 		jsonStructs[i].Image = articles[i].Image
-		jsonStructs[i].Reviews, _ = articles[i].ReviewCount()
+		jsonStructs[i].Reviews = redis.ArticleReviewCount(articles[i].Id.Hex())
 	}
 
 	respData := make(map[string]interface{})
@@ -85,8 +89,19 @@ type articleInfoForm struct {
 	AccessToken string `form:"access_token"`
 }
 
-func articleInfoHandler(request *http.Request, resp http.ResponseWriter, form articleInfoForm) {
-	var article models.Article
+func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleInfoForm) {
+	article := models.Article{}
+	jsonStruct := &articleJsonStruct{}
+
+	data := redis.GetArticle(form.Id)
+	if len(data) > 0 && json.Unmarshal([]byte(data), jsonStruct) == nil {
+		jsonStruct.Reviews = redis.ArticleReviewCount(form.Id)
+		jsonStruct.Thumbs = redis.ArticleThumbCount(form.Id)
+
+		writeResponse(request.RequestURI, resp, jsonStruct, errors.NoError)
+		//log.Println("find article", form.Id, "in cache")
+		return
+	}
 
 	if find, err := article.FindById(form.Id); !find {
 		if err == errors.NoError {
@@ -96,53 +111,48 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, form ar
 		return
 	}
 
-	jsonStruct := articleJsonStruct{}
-	if form.PubTime {
-		jsonStruct.PubTime = article.PubTime.Format(TimeFormat)
-	}
-	if form.Title {
-		jsonStruct.Title = article.Title
-	}
-	if form.Source {
-		jsonStruct.Source = article.Source
-	}
-	if form.ThumbCount {
-		jsonStruct.Thumbs = len(article.Thumbs)
-	}
-	if form.Image {
-		jsonStruct.Image = article.Image
-	}
-	if form.Content {
-		contents := make([]contentObject, len(article.Content))
+	jsonStruct.Id = article.Id.Hex()
+	jsonStruct.Title = article.Title
+	jsonStruct.Source = article.Source
+	jsonStruct.Url = article.Url
+	jsonStruct.PubTime = article.PubTime.Format(TimeFormat)
+	jsonStruct.Reviews = redis.ArticleReviewCount(form.Id)
+	jsonStruct.Thumbs = redis.ArticleThumbCount(form.Id)
+	jsonStruct.Image = article.Image
 
-		for i, text := range article.Content {
-			/*
-				if strings.Index(text, "[img]") == 0 &&
-					strings.LastIndex(text, "[/img]") > 0 {
-					fid := strings.TrimLeft("[img]")
-					fid = strings.TrimRight("[/img]")
+	contents := make([]contentObject, len(article.Content))
 
-					contents[i] = contentObject{ContentType: "image",
-						ContentText: imageUrl(fid),
-						ImageUrl:    imageUrl(fid),
-					}
-				}
-			*/
-			if strings.Index(text, "http") >= 0 &&
-				strings.LastIndex(text, ".jpg") > 0 {
-				contents[i] = contentObject{ContentType: "image",
-					ContentText: text,
-					ImageUrl:    text,
-				}
-			} else {
-				contents[i] = contentObject{ContentType: "text",
-					ContentText: text,
-				}
+	for i, text := range article.Content {
+		if strings.HasPrefix(text, "[img]") &&
+			strings.HasSuffix(text, "[img]") {
+			fid := strings.TrimSuffix(strings.TrimPrefix(text, "[img]"), "[img]")
+			contents[i] = contentObject{ContentType: "image",
+				ContentText: imageUrl(fid, ImageThumbnail),
+				ImageUrl:    imageUrl(fid, ImageOriginal),
+			}
+		} else if strings.HasPrefix(text, "http") &&
+			strings.HasSuffix(text, ".jpg") {
+			contents[i] = contentObject{ContentType: "image",
+				ContentText: text,
+				ImageUrl:    text,
+			}
+		} else {
+			contents[i] = contentObject{ContentType: "text",
+				ContentText: text,
 			}
 		}
-		jsonStruct.Content = contents
 	}
+	jsonStruct.Content = contents
 	writeResponse(request.RequestURI, resp, jsonStruct, errors.NoError)
+
+	redis.LogArticleView(form.Id)
+
+	if data, err := json.Marshal(jsonStruct); err == nil {
+		redis.LogArticle(form.Id, string(data))
+	} else {
+		log.Println(err)
+	}
+
 }
 
 type articleThumbForm struct {
@@ -160,12 +170,16 @@ func (form *articleThumbForm) Validate(e *binding.Errors, req *http.Request) {
 	form.User = userAuth(form.AccessToken, e)
 }
 
-func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, form articleThumbForm) {
+func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleThumbForm) {
 	var article models.Article
 	article.Id = bson.ObjectIdHex(form.ArticleId)
 	err := article.SetThumb(form.User.Userid, form.Status)
 
 	writeResponse(request.RequestURI, resp, nil, err)
+
+	if err == errors.NoError {
+		redis.LogArticleThumb(form.ArticleId, form.Status)
+	}
 }
 
 func checkArticleThumbHandler(request *http.Request, resp http.ResponseWriter, form articleThumbForm) {

@@ -16,6 +16,7 @@ type File struct {
 	Size        int64  `bson:"length"`
 	Md5         string
 	Owner       string
+	Count       int
 	ContentType string    `bson:"contentType"`
 	UploadDate  time.Time `bson:"uploadDate"`
 }
@@ -67,7 +68,7 @@ func (this *File) Delete() (errId int) {
 	remove := func(c *mgo.Collection) error {
 		err := c.Remove(bson.M{"fid": this.Fid})
 		if err == nil {
-			weedo.Delete(this.Fid) //TODO: fail process
+			weedo.Delete(this.Fid, this.Count) //TODO: fail process
 		}
 		return err
 	}
