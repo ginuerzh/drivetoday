@@ -5,18 +5,19 @@ import (
 	//"github.com/ginuerzh/drivetoday/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"log"
 )
 
 var (
-	mgoSession *mgo.Session
-	//databaseName   = "drivetoday"
-	databaseName   = "cartour"
-	articleColl    = "threads"
+	mgoSession   *mgo.Session
+	databaseName = "drivetoday"
+	//databaseName   = "cartour"
+	//articleColl    = "threads"
 	userCollection = "users"
-	//articleColl    = "articles"
-	reviewColl = "reviews"
-	fileColl   = "files"
-	eventColl  = "events"
+	articleColl    = "articles"
+	reviewColl     = "reviews"
+	fileColl       = "files"
+	eventColl      = "events"
 )
 
 func getSession() *mgo.Session {
@@ -24,15 +25,15 @@ func getSession() *mgo.Session {
 		var err error
 		mgoSession, err = mgo.Dial("localhost")
 		if err != nil {
-			panic(err) // no, not really
+			log.Println(err) // no, not really
 		}
 	}
-	return mgoSession.Clone()
+	return mgoSession
 }
 
 func withCollection(collection string, s func(*mgo.Collection) error) error {
 	session := getSession()
-	defer session.Close()
+	//defer session.Close()
 	c := session.DB(databaseName).C(collection)
 	return s(c)
 }

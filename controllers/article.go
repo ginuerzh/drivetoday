@@ -2,13 +2,13 @@
 package controllers
 
 import (
-	"encoding/json"
+	//"encoding/json"
 	"github.com/codegangsta/martini"
 	"github.com/codegangsta/martini-contrib/binding"
 	"github.com/ginuerzh/drivetoday/errors"
 	"github.com/ginuerzh/drivetoday/models"
 	"labix.org/v2/mgo/bson"
-	"log"
+	//"log"
 	"net/http"
 	"strings"
 )
@@ -66,7 +66,7 @@ func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *
 		jsonStructs[i].Url = articles[i].Url
 		jsonStructs[i].PubTime = articles[i].PubTime.Format(TimeFormat)
 		jsonStructs[i].Thumbs = redis.ArticleThumbCount(articles[i].Id.Hex())
-		jsonStructs[i].Image = articles[i].Image
+		jsonStructs[i].Image = imageUrl(articles[i].Image, ImageThumbnail)
 		jsonStructs[i].Reviews = redis.ArticleReviewCount(articles[i].Id.Hex())
 	}
 
@@ -92,17 +92,13 @@ type articleInfoForm struct {
 func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleInfoForm) {
 	article := models.Article{}
 	jsonStruct := &articleJsonStruct{}
-
-	data := redis.GetArticle(form.Id)
-	if len(data) > 0 && json.Unmarshal([]byte(data), jsonStruct) == nil {
-		jsonStruct.Reviews = redis.ArticleReviewCount(form.Id)
-		jsonStruct.Thumbs = redis.ArticleThumbCount(form.Id)
-
-		writeResponse(request.RequestURI, resp, jsonStruct, errors.NoError)
-		//log.Println("find article", form.Id, "in cache")
-		return
-	}
-
+	/*
+		data := redis.GetArticle(form.Id)
+		if len(data) > 0 {
+			writeRawResponse(resp, data)
+			return
+		}
+	*/
 	if find, err := article.FindById(form.Id); !find {
 		if err == errors.NoError {
 			err = errors.NotExistsError
@@ -118,23 +114,21 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 	jsonStruct.PubTime = article.PubTime.Format(TimeFormat)
 	jsonStruct.Reviews = redis.ArticleReviewCount(form.Id)
 	jsonStruct.Thumbs = redis.ArticleThumbCount(form.Id)
-	jsonStruct.Image = article.Image
 
 	contents := make([]contentObject, len(article.Content))
 
 	for i, text := range article.Content {
-		if strings.HasPrefix(text, "[img]") &&
-			strings.HasSuffix(text, "[img]") {
-			fid := strings.TrimSuffix(strings.TrimPrefix(text, "[img]"), "[img]")
+
+		if strings.HasPrefix(text, "[img]") && strings.HasSuffix(text, "[img]") {
+			continue
+		}
+
+		if strings.HasPrefix(text, "[fid]") &&
+			strings.HasSuffix(text, "[fid]") {
+			fid := strings.TrimSuffix(strings.TrimPrefix(text, "[fid]"), "[fid]")
 			contents[i] = contentObject{ContentType: "image",
 				ContentText: imageUrl(fid, ImageThumbnail),
 				ImageUrl:    imageUrl(fid, ImageOriginal),
-			}
-		} else if strings.HasPrefix(text, "http") &&
-			strings.HasSuffix(text, ".jpg") {
-			contents[i] = contentObject{ContentType: "image",
-				ContentText: text,
-				ImageUrl:    text,
 			}
 		} else {
 			contents[i] = contentObject{ContentType: "text",
@@ -146,13 +140,7 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 	writeResponse(request.RequestURI, resp, jsonStruct, errors.NoError)
 
 	redis.LogArticleView(form.Id)
-
-	if data, err := json.Marshal(jsonStruct); err == nil {
-		redis.LogArticle(form.Id, string(data))
-	} else {
-		log.Println(err)
-	}
-
+	//redis.LogArticle(form.Id, raw)
 }
 
 type articleThumbForm struct {

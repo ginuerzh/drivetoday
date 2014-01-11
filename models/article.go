@@ -11,7 +11,7 @@ import (
 type Article struct {
 	Id         bson.ObjectId `bson:"_id,omitempty"`
 	Title      string
-	Source     string
+	Source     string `bson:"from"`
 	Tid        string
 	Url        string
 	Author     string

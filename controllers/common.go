@@ -46,7 +46,7 @@ func jsonData(reqPath string, data interface{}, err int) ([]byte, error) {
 	return json.Marshal(resp)
 }
 
-func writeResponse(uri string, resp http.ResponseWriter, data interface{}, errId int) {
+func writeResponse(uri string, resp http.ResponseWriter, data interface{}, errId int) []byte {
 	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
 	r, _ := jsonData(uri, data, errId)
 	if errId == errs.DbError {
@@ -56,6 +56,13 @@ func writeResponse(uri string, resp http.ResponseWriter, data interface{}, errId
 		resp.WriteHeader(http.StatusNotFound)
 	}
 	resp.Write(r)
+
+	return r
+}
+
+func writeRawResponse(resp http.ResponseWriter, raw []byte) {
+	resp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	resp.Write(raw)
 }
 
 func Md5(s string) string {
@@ -117,7 +124,7 @@ func imageUrl(fid string, size ImageSize) string {
 	if err != nil {
 		return url
 	}
-	if url, err = weedo.Lookup(id); err != nil {
+	if url, _, err = weedo.Lookup(id); err != nil {
 		return url
 	}
 

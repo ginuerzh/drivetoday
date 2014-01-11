@@ -17,7 +17,7 @@ func classic() *martini.ClassicMartini {
 	r := martini.NewRouter()
 	m := martini.New()
 	m.Use(controllers.LogRequestHandler)
-	m.Use(martini.Logger())
+	//m.Use(martini.Logger())
 	m.Use(martini.Recovery())
 	m.Use(martini.Static("public"))
 	m.Action(r.Handle)
