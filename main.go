@@ -5,7 +5,7 @@ import (
 	"github.com/codegangsta/martini"
 	"github.com/ginuerzh/drivetoday/controllers"
 	"log"
-	"net/http"
+	//"net/http"
 	"os"
 )
 
@@ -17,7 +17,7 @@ func classic() *martini.ClassicMartini {
 	r := martini.NewRouter()
 	m := martini.New()
 	m.Use(controllers.LogRequestHandler)
-	//m.Use(martini.Logger())
+	m.Use(martini.Logger())
 	m.Use(martini.Recovery())
 	m.Use(martini.Static("public"))
 	m.Action(r.Handle)
@@ -36,5 +36,6 @@ func main() {
 	controllers.BindEventApi(m)
 	controllers.BindStatApi(m)
 
-	http.ListenAndServe(":8080", m)
+	m.Run()
+	//http.ListenAndServe(":8080", m)
 }

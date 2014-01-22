@@ -13,7 +13,7 @@ type File struct {
 	Id          bson.ObjectId `bson:"_id,omitempty"`
 	Fid         string
 	Name        string `bson:"filename"`
-	Size        int64  `bson:"length"`
+	Length      int64  `bson:"length"`
 	Md5         string
 	Owner       string
 	Count       int
@@ -51,12 +51,8 @@ func (this *File) FindByFid(fid string) (bool, int) {
 func (this *File) Save() (errId int) {
 	errId = errors.NoError
 
-	insert := func(c *mgo.Collection) error {
-		this.Id = bson.NewObjectId()
-		return c.Insert(this)
-	}
-
-	if err := withCollection(fileColl, insert); err != nil {
+	this.Id = bson.NewObjectId()
+	if err := save(fileColl, this); err != nil {
 		errId = errors.DbError
 	}
 	return
@@ -73,7 +69,7 @@ func (this *File) Delete() (errId int) {
 		return err
 	}
 
-	if err := withCollection(fileColl, remove); err != nil {
+	if err := withCollection(fileColl, nil, remove); err != nil {
 		if err != mgo.ErrNotFound {
 			errId = errors.DbError
 		}

@@ -13,7 +13,7 @@ const (
 	DbError
 	_
 	JsonError
-	UserNotFoundError
+	NotFoundError
 	PasswordError
 	InvalidFileError
 	HttpError
@@ -36,7 +36,7 @@ var errMap map[int]string = map[int]string{
 	AccessError:         "access token error",
 	DbError:             "database error",
 	JsonError:           "json data error",
-	UserNotFoundError:   "user not found",
+	NotFoundError:       "not found",
 	PasswordError:       "password invalid",
 	InvalidFileError:    "file invalid",
 	HttpError:           "http error",

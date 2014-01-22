@@ -18,6 +18,7 @@ var (
 	reviewColl     = "reviews"
 	fileColl       = "files"
 	eventColl      = "events"
+	rateColl       = "rates"
 )
 
 func getSession() *mgo.Session {
@@ -28,12 +29,14 @@ func getSession() *mgo.Session {
 			log.Println(err) // no, not really
 		}
 	}
-	return mgoSession
+	return mgoSession.Clone()
 }
 
-func withCollection(collection string, s func(*mgo.Collection) error) error {
+func withCollection(collection string, safe *mgo.Safe, s func(*mgo.Collection) error) error {
 	session := getSession()
-	//defer session.Close()
+	defer session.Close()
+
+	session.SetSafe(safe)
 	c := session.DB(databaseName).C(collection)
 	return s(c)
 }
@@ -71,7 +74,7 @@ func search(collection string, query interface{}, selector interface{},
 		return err
 	}
 
-	return withCollection(collection, q)
+	return withCollection(collection, nil, q)
 }
 
 func updateId(collection string, id bson.ObjectId, change interface{}) error {
@@ -79,5 +82,35 @@ func updateId(collection string, id bson.ObjectId, change interface{}) error {
 		return c.UpdateId(id, change)
 	}
 
-	return withCollection(collection, update)
+	return withCollection(collection, nil, update)
+}
+
+func update(collection string, selector, change interface{}, safe bool) error {
+	update := func(c *mgo.Collection) error {
+		return c.Update(selector, change)
+	}
+	if safe {
+		return withCollection(collection, &mgo.Safe{}, update)
+	}
+	return withCollection(collection, nil, update)
+}
+
+func upsert(collection string, selector, change interface{}, safe bool) error {
+	upsert := func(c *mgo.Collection) error {
+		_, err := c.Upsert(selector, change)
+		//log.Println(info, err)
+		return err
+	}
+	if safe {
+		return withCollection(collection, &mgo.Safe{}, upsert)
+	}
+	return withCollection(collection, nil, upsert)
+}
+
+func save(collection string, o interface{}) error {
+	insert := func(c *mgo.Collection) error {
+		return c.Insert(o)
+	}
+
+	return withCollection(collection, nil, insert)
 }

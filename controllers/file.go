@@ -27,16 +27,22 @@ func BindFileApi(m *martini.ClassicMartini) {
 }
 
 type fileUploadForm struct {
-	AccessToken string      `form:"access_token" binding:"required"`
-	user        models.User `form:"-"`
+	AccessToken string `form:"access_token" binding:"required"`
+	//user        models.User `form:"-"`
 }
 
 func (form *fileUploadForm) Validate(e *binding.Errors, req *http.Request) {
-	log.Println(form.AccessToken)
-	form.user = userAuth(form.AccessToken, e)
+	//log.Println(form.AccessToken)
+	//form.user = userAuth(form.AccessToken, e)
 }
 
-func fileUploadHandler(request *http.Request, resp http.ResponseWriter, form fileUploadForm) {
+func fileUploadHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form fileUploadForm) {
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
+
 	filedata, header, err := request.FormFile("filedata")
 	if err != nil {
 		log.Println(err)
@@ -44,12 +50,12 @@ func fileUploadHandler(request *http.Request, resp http.ResponseWriter, form fil
 		return
 	}
 
-	fid, size, err := weedo.AssignUpload(header.Filename, header.Header.Get("Content-Type"), filedata)
+	fid, length, err := weedo.AssignUpload(header.Filename, header.Header.Get("Content-Type"), filedata)
 	if err != nil {
 		writeResponse(request.RequestURI, resp, nil, errors.FileUploadError)
 		return
 	}
-	log.Println(fid, size, header.Filename, header.Header.Get("Content-Type"))
+	log.Println(fid, length, header.Filename, header.Header.Get("Content-Type"))
 
 	filedata.Seek(0, 0)
 
@@ -57,9 +63,9 @@ func fileUploadHandler(request *http.Request, resp http.ResponseWriter, form fil
 	file.Fid = fid
 	file.Name = header.Filename
 	file.ContentType = header.Header.Get("Content-Type")
-	file.Size = size
+	file.Length = length
 	file.Md5 = FileMd5(filedata)
-	file.Owner = form.user.Userid
+	file.Owner = userid
 	file.UploadDate = time.Now()
 	if err := file.Save(); err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)
@@ -109,17 +115,23 @@ func imageDownloadHandler(request *http.Request, resp http.ResponseWriter, form 
 }
 
 type fileDeleteForm struct {
-	Fid         string      `json:"image_id" binding:"required"`
-	AccessToken string      `json:"access_token" binding:"required"`
-	user        models.User `json:"-"`
+	Fid         string `json:"image_id" binding:"required"`
+	AccessToken string `json:"access_token" binding:"required"`
+	//user        models.User `json:"-"`
 }
 
 func (form *fileDeleteForm) Validate(e *binding.Errors, req *http.Request) {
-	form.user = userAuth(form.AccessToken, e)
+	//form.user = userAuth(form.AccessToken, e)
 }
 
-func fileDeleteHandler(request *http.Request, resp http.ResponseWriter, form fileDeleteForm) {
+func fileDeleteHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form fileDeleteForm) {
 	var file models.File
+
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
 
 	if find, err := file.FindByFid(form.Fid); !find {
 		if err == errors.NoError {
@@ -129,7 +141,7 @@ func fileDeleteHandler(request *http.Request, resp http.ResponseWriter, form fil
 		return
 	}
 
-	if file.Owner != form.user.Userid {
+	if file.Owner != userid {
 		writeResponse(request.RequestURI, resp, nil, errors.FileNotFoundError)
 		return
 	}

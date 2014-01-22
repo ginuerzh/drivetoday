@@ -22,13 +22,13 @@ func BindEventApi(m *martini.ClassicMartini) {
 }
 
 type eventListForm struct {
-	PageNumber  int         `form:"page_number" json:"page_number"`
-	AccessToken string      `form:"access_token" json:"access_token" binding:"required"`
-	user        models.User `form:"-" json:"-"`
+	PageNumber  int    `form:"page_number" json:"page_number"`
+	AccessToken string `form:"access_token" json:"access_token" binding:"required"`
+	//user        models.User `form:"-" json:"-"`
 }
 
 func (form *eventListForm) Validate(e *binding.Errors, req *http.Request) {
-	form.user = userAuth(form.AccessToken, e)
+	//form.user = userAuth(form.AccessToken, e)
 }
 
 type eventJsonStruct struct {
@@ -41,8 +41,17 @@ type eventJsonStruct struct {
 	Message   string `json:"message"`
 }
 
-func eventListHandler(request *http.Request, resp http.ResponseWriter, form eventListForm) {
-	total, events, err := form.user.Events(DefaultPageSize*form.PageNumber, DefaultPageSize)
+func eventListHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventListForm) {
+	var user models.User
+
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
+
+	user.Userid = userid
+	total, events, err := user.Events(DefaultPageSize*form.PageNumber, DefaultPageSize)
 	if err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)
 		return
@@ -55,7 +64,7 @@ func eventListHandler(request *http.Request, resp http.ResponseWriter, form even
 		jsonStructs[i].Ctime = events[i].Ctime.Format(TimeFormat)
 		jsonStructs[i].ArticleId = events[i].ArticleId
 		jsonStructs[i].User = events[i].User
-		jsonStructs[i].Read = events[i].Read
+		jsonStructs[i].Read = true
 		jsonStructs[i].Message = events[i].Message
 	}
 
@@ -68,25 +77,34 @@ func eventListHandler(request *http.Request, resp http.ResponseWriter, form even
 }
 
 func newEventsHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventListForm) {
-	respData := map[string]interface{}{"events_count": redis.MessageCount(form.user.Userid)}
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
+
+	respData := map[string]interface{}{"events_count": redis.MessageCount(userid)}
 	writeResponse(request.RequestURI, resp, respData, errors.NoError)
 }
 
 type eventReadForm struct {
-	AccessToken string      `form:"access_token" json:"access_token" binding:"required"`
-	Ids         []string    `form:"event_ids" json:"event_ids" binding:"required"`
-	user        models.User `form:"-" json:"-"`
-}
-
-func (form *eventReadForm) Validate(e *binding.Errors, req *http.Request) {
-	form.user = userAuth(form.AccessToken, e)
+	AccessToken string   `form:"access_token" json:"access_token" binding:"required"`
+	Ids         []string `form:"event_ids" json:"event_ids" binding:"required"`
 }
 
 func eventReadHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventReadForm) {
-	count, err := form.user.ReadEvents(form.Ids)
+	//var user models.User
 
-	respData := map[string]interface{}{"read_count": count}
-	writeResponse(request.RequestURI, resp, respData, err)
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
 
-	redis.ClearMessages(form.user.Userid)
+	redis.ClearMessages(userid)
+	//user.Userid = userid
+	//count, err := user.ReadEvents(form.Ids)
+
+	//respData := map[string]interface{}{"read_count": count}
+	writeResponse(request.RequestURI, resp, nil, errors.NoError)
 }

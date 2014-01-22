@@ -3,7 +3,7 @@ package models
 
 import (
 	"github.com/ginuerzh/drivetoday/errors"
-	"labix.org/v2/mgo"
+	//"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"time"
 )
@@ -40,12 +40,8 @@ func (this *Review) FindById(id string) (bool, int) {
 func (this *Review) Save() (errId int) {
 	errId = errors.NoError
 
-	insert := func(c *mgo.Collection) error {
-		this.Id = bson.NewObjectId()
-		return c.Insert(this)
-	}
-
-	if err := withCollection(reviewColl, insert); err != nil {
+	this.Id = bson.NewObjectId()
+	if err := save(reviewColl, this); err != nil {
 		errId = errors.DbError
 	}
 	return

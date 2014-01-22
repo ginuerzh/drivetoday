@@ -9,8 +9,10 @@ import (
 	"github.com/ginuerzh/drivetoday/models"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -27,9 +29,10 @@ const (
 const (
 	WeiboUserShowUrl  = "https://api.weibo.com/2/users/show.json"
 	WeiboStatusUpdate = "https://api.weibo.com/2/statuses/update.json"
+)
 
-	LoginTypeEmail = "email"
-	LoginTypeWeibo = "weibo"
+var (
+	random *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 )
 
 func BindUserApi(m *martini.ClassicMartini) {
@@ -49,9 +52,6 @@ type userRegForm struct {
 	Role     string `json:"role"`
 }
 
-func (form userRegForm) Validate(errors *binding.Errors, req *http.Request) {
-}
-
 func registerHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form userRegForm) {
 	var user models.User
 
@@ -61,8 +61,7 @@ func registerHandler(request *http.Request, resp http.ResponseWriter, redis *Red
 	user.Role = form.Role
 	user.RegTime = time.Now()
 	user.LastAccess = time.Now()
-	user.AccessToken = Uuid()
-	user.Online = true
+	//user.Online = true
 
 	if exists, _ := user.CheckExists(); exists {
 		writeResponse(request.RequestURI, resp, nil, errors.UserExistError)
@@ -72,17 +71,19 @@ func registerHandler(request *http.Request, resp http.ResponseWriter, redis *Red
 	if err := user.Save(); err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)
 	} else {
-		data := map[string]string{"access_token": user.AccessToken}
+		accessToken := Uuid()
+		data := map[string]string{"access_token": accessToken}
 		writeResponse(request.RequestURI, resp, data, err)
 
 		redis.LogRegister(user.Userid)
+		redis.LogOnlineUser(accessToken, user.Userid)
 	}
 }
 
 // user login parameter
 type loginForm struct {
-	Userid   string `json:"userid" binding:"required"`
-	Password string `json:"verfiycode" binding:"required"`
+	Userid   string `json:"userid"`
+	Password string `json:"verfiycode"`
 	Type     string `json:"account_type" binding:"required"`
 }
 
@@ -97,13 +98,13 @@ type weiboInfo struct {
 	ErrCode     int    `json:"error_code"`
 }
 
-func weiboLogin(uid, accessToken string) (*models.User, int) {
+func weiboLogin(uid, password string, redis *RedisLogger) (*models.User, int) {
 	weibo := weiboInfo{}
 	user := &models.User{}
 
 	v := url.Values{}
 	v.Set("uid", uid)
-	v.Set("access_token", accessToken)
+	v.Set("access_token", password)
 
 	url := WeiboUserShowUrl + "?" + v.Encode()
 	resp, err := http.Get(url)
@@ -126,7 +127,7 @@ func weiboLogin(uid, accessToken string) (*models.User, int) {
 	}
 
 	user.Userid = strings.ToLower(uid)
-	user.Password = Md5(accessToken)
+	user.Password = Md5(password)
 	exist, e := user.Exists()
 	if e != errors.NoError {
 		return nil, e
@@ -143,61 +144,69 @@ func weiboLogin(uid, accessToken string) (*models.User, int) {
 	user.Profile = weibo.Avatar
 	user.Location = weibo.Location
 	user.About = weibo.Description
-	user.Role = LoginTypeWeibo
+	user.Role = UserTypeWeibo
 	user.RegTime = time.Now()
 
 	if err := user.Save(); err != errors.NoError {
 		return nil, err
 	}
+	redis.LogRegister(user.Userid)
+
+	return user, errors.NoError
+}
+func guestLogin(redis *RedisLogger) (*models.User, int) {
+	user := &models.User{}
+	//user.Role = UserTypeGuest
+	//user.RegTime = time.Now()
+	user.Userid = GuestUserPrefix + strconv.Itoa(time.Now().Nanosecond()) + ":" + strconv.Itoa(random.Intn(65536))
+	/*
+		if err := user.Save(); err != errors.NoError {
+			return nil, err
+		}
+		redis.LogRegister(user.Userid)
+	*/
 
 	return user, errors.NoError
 }
 
-func loginHandler(request *http.Request, resp http.ResponseWriter, form loginForm) {
-	var user models.User
+func loginHandler(request *http.Request, resp http.ResponseWriter, form loginForm, redis *RedisLogger) {
+	var user *models.User
+	var err int
+	accessToken := Uuid()
 
-	if form.Type == LoginTypeWeibo {
-		u, err := weiboLogin(form.Userid, form.Password)
-		if err != errors.NoError {
-			writeResponse(request.RequestURI, resp, nil, err)
-			return
+	if form.Type == UserTypeWeibo {
+		user, err = weiboLogin(form.Userid, form.Password, redis)
+	} else if form.Type == UserTypeGuest {
+		user, err = guestLogin(redis)
+		accessToken = GuestUserPrefix + accessToken // start with 'guest:' for redis checking
+	} else if form.Type == UserTypeEmail {
+		var find bool
+		if find, err = user.FindByUserPass(strings.ToLower(form.Userid), Md5(form.Password)); !find {
+			if err == errors.NoError {
+				err = errors.AuthError
+			}
 		}
-		user = *u
 	}
 
-	if find, err := user.FindByUserPass(strings.ToLower(form.Userid), Md5(form.Password)); !find {
-		if err == errors.NoError {
-			err = errors.AuthError
-		}
+	if err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)
 		return
 	}
 
-	user.AccessToken = Uuid()
-	user.Online = true
-	user.LastAccess = time.Now()
-	if err := user.UpdateStatus(); err != errors.NoError {
-		writeResponse(request.RequestURI, resp, nil, err)
-		return
-	}
-
-	data := map[string]string{"access_token": user.AccessToken}
+	data := map[string]string{"access_token": accessToken}
 	writeResponse(request.RequestURI, resp, data, errors.NoError)
 
+	redis.LogOnlineUser(accessToken, user.Userid)
 }
 
 type logoutForm struct {
-	AccessToken string      `json:"access_token" binding:"required"`
-	User        models.User `json:"-"`
+	AccessToken string `json:"access_token" binding:"required"`
 }
 
-func (form *logoutForm) Validate(e *binding.Errors, req *http.Request) {
-	form.User = userAuth(form.AccessToken, e)
-}
+func logoutHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form logoutForm) {
+	redis.DelOnlineUser(form.AccessToken)
+	writeResponse(request.RequestURI, resp, nil, errors.NoError)
 
-func logoutHandler(request *http.Request, resp http.ResponseWriter, form logoutForm) {
-	err := form.User.Logout()
-	writeResponse(request.RequestURI, resp, nil, err)
 }
 
 type getInfoForm struct {
@@ -209,7 +218,7 @@ func userInfoHandler(request *http.Request, resp http.ResponseWriter, form getIn
 
 	if find, err := user.FindByUserId(form.Userid); !find {
 		if err == errors.NoError {
-			err = errors.UserNotFoundError
+			err = errors.NotFoundError
 		}
 		writeResponse(request.RequestURI, resp, nil, err)
 		return
@@ -229,38 +238,29 @@ func userInfoHandler(request *http.Request, resp http.ResponseWriter, form getIn
 }
 
 type setProfileForm struct {
-	ImageId     string      `json:"image_id" binding:"required"`
-	AccessToken string      `json:"access_token"  binding:"required"`
-	User        models.User `json:"-"`
+	ImageId     string `json:"image_id" binding:"required"`
+	AccessToken string `json:"access_token"  binding:"required"`
+	//User        models.User `json:"-"`
 }
 
-func (form *setProfileForm) Validate(e *binding.Errors, req *http.Request) {
-	form.User = userAuth(form.AccessToken, e)
-}
+func setProfileHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form setProfileForm) {
+	var user models.User
 
-func setProfileHandler(request *http.Request, resp http.ResponseWriter, form setProfileForm) {
-	err := form.User.ChangeProfile(form.ImageId)
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
+
+	user.Userid = userid
+	err := user.ChangeProfile(form.ImageId)
 	writeResponse(request.RequestURI, resp, nil, err)
 }
 
 type userNewsForm struct {
-	AccessToken string      `form:"access_token" json:"access_token"  binding:"required"`
-	user        models.User `form:"-" json:"-"`
-}
-
-func (form *userNewsForm) Validate(e *binding.Errors, req *http.Request) {
-	form.user = userAuth(form.AccessToken, e)
+	AccessToken string `form:"access_token" json:"access_token"  binding:"required"`
 }
 
 func userNewsHandler(request *http.Request, resp http.ResponseWriter, form userNewsForm) {
-	/*
-		respData := make(map[string]interface{})
-
-		conn := pool.Get()
-		defer conn.Close()
-
-		respData["new_thumb_count"], _ = redis.Int(conn.Do("LLEN", "drivetoday:user:review:thumbs:"+form.user.Userid))
-		respData["new_review_count"], _ = redis.Int(conn.Do("LLEN", "drivetoday:user:mentions:"+form.user.Userid))
-	*/
 	writeResponse(request.RequestURI, resp, nil, errors.NoError)
 }

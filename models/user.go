@@ -5,26 +5,35 @@ import (
 	"github.com/ginuerzh/drivetoday/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	//"log"
 	"time"
 )
 
+var (
+//dur time.Duration
+)
+
+func init() {
+	//dur, _ = time.ParseDuration("-30h") // auto logout after 15 minutes since last access
+}
+
 type User struct {
-	Id            bson.ObjectId `bson:"_id,omitempty"`
-	Userid        string
-	Password      string
-	Nickname      string
-	Gender        string    `bson:",omitempty"`
-	Url           string    `bson:",omitempty"`
-	Phone         string    `bson:",omitempty"`
-	About         string    `bson:",omitempty"`
-	Location      string    `bson:",omitempty"`
-	Profile       string    `bson:",omitempty"`
-	RegTime       time.Time `bson:"reg_time"`
-	Role          string    `bson:",omitempty"`
-	Online        bool
-	LastAccess    time.Time `bson:"last_access"`
-	ThumbArticles []string  `bson:"thumb_articles,omitempty"`
-	AccessToken   string    `bson:"access_token,omitempty"`
+	Id       bson.ObjectId `bson:"_id,omitempty"`
+	Userid   string        `bson:",omitempty"`
+	Password string        `bson:",omitempty"`
+	Nickname string        `bson:",omitempty"`
+	Gender   string        `bson:",omitempty"`
+	Url      string        `bson:",omitempty"`
+	Phone    string        `bson:",omitempty"`
+	About    string        `bson:",omitempty"`
+	Location string        `bson:",omitempty"`
+	Profile  string        `bson:",omitempty"`
+	RegTime  time.Time     `bson:"reg_time"`
+	Role     string        `bson:",omitempty"`
+	//Online        bool
+	LastAccess time.Time `bson:"last_access,omitempty"`
+	//ThumbArticles []string  `bson:"thumb_articles,omitempty"`
+	//AccessToken string `bson:"access_token,omitempty"`
 }
 
 func (this *User) Exists() (bool, int) {
@@ -60,14 +69,11 @@ func (this *User) Save() (errId int) {
 		return
 	}
 
-	insert := func(c *mgo.Collection) error {
-		this.Id = bson.NewObjectId()
-		return c.Insert(this)
-	}
-
-	if err := withCollection(userCollection, insert); err != nil {
+	this.Id = bson.NewObjectId()
+	if err := save(userCollection, this); err != nil {
 		errId = errors.DbError
 	}
+
 	return
 }
 
@@ -99,6 +105,7 @@ func (this *User) ChangeProfile(profile string) int {
 	return errors.NoError
 }
 
+/*
 func (this *User) Upsert() (errId int) {
 	errId = errors.NoError
 
@@ -111,13 +118,14 @@ func (this *User) Upsert() (errId int) {
 		return err
 	}
 
-	if err := withCollection(userCollection, upsert); err != nil {
+	if err := withCollection(userCollection, nil, upsert); err != nil {
 		errId = errors.DbError
 	}
 
 	return
 }
-
+*/
+/*
 func (this *User) Access() int {
 	change := bson.M{
 		"$set": bson.M{
@@ -129,6 +137,86 @@ func (this *User) Access() int {
 		return errors.DbError
 	}
 	return errors.NoError
+}
+
+
+func (this *User) RelatedUsers(article string, limit int) (users []User, errId int) {
+	query := bson.M{
+		"article_rating.article": article,
+		"userid": bson.M{
+			"$ne": this.Userid,
+		},
+	}
+	selector := bson.M{
+		"article_rating": 1,
+	}
+
+	err := search(rateColl, query, selector, 0, limit, nil, nil, &users)
+	if err != nil {
+		return nil, errors.DbError
+	}
+
+	errId = errors.NoError
+	return
+}
+*/
+
+func (this *User) ArticleRate() (UserRate, int) {
+	rate := UserRate{}
+	_, err := rate.FindByUserid(this.Userid)
+	return rate, err
+}
+
+func (this *User) RateArticle(articleId string, rate int, mask bool) int {
+	selector := bson.M{
+		"userid":        this.Userid,
+		"rates.article": articleId,
+	}
+
+	op := "or"
+	if mask {
+		op = "and"
+	}
+
+	change := bson.M{
+		"$bit": bson.M{
+			"rates.$.rate": bson.M{
+				op: rate,
+			},
+		},
+	}
+
+	if err := update(rateColl, selector, change, true); !mask && err != nil {
+		if err != mgo.ErrNotFound {
+			return errors.DbError
+		}
+
+		selector = bson.M{
+			"userid": this.Userid,
+		}
+		change = bson.M{
+			"$addToSet": bson.M{
+				"rates": &ArticleRate{articleId, rate},
+			},
+		}
+
+		if err = upsert(rateColl, selector, change, false); err != nil {
+			return errors.DbError
+		}
+	}
+
+	return errors.NoError
+}
+
+/*
+func (this *User) ArticleRates(articles ...string) []int {
+	var users []User
+	rates := make([]int, len(articles))
+	search(userCollection, bson.M{"userid": this.Userid}, bson.M{"article_rating": 1}, 0, 1, nil, nil, &users)
+	if len(users) == 0 || len(users[0].Rates) == 0 {
+		return rates
+	}
+
 }
 
 func (this *User) UpdateStatus() int {
@@ -145,6 +233,7 @@ func (this *User) UpdateStatus() int {
 	}
 	return errors.NoError
 }
+*/
 
 func (this *User) FindByUserId(userid string) (bool, int) {
 	return this.findOne(bson.M{"userid": userid})
@@ -163,15 +252,14 @@ func (this *User) CheckExists() (bool, int) {
 	return this.findOne(bson.M{"$or": S{{"userid": this.Userid}, {"nickname": this.Nickname}}})
 }
 
+/*
 func (this *User) FindByAccessToken(accessToken string) (bool, int) {
-	d, _ := time.ParseDuration("-30h") // auto logout after 30 minutes since last access
-
 	return this.findOne(
 		bson.M{
 			"access_token": accessToken,
 			"online":       true,
 			"last_access": bson.M{
-				"$gte": time.Now().Add(d),
+				"$gte": time.Now().Add(dur),
 			},
 		})
 }
@@ -195,7 +283,7 @@ func (this *User) Logout() int {
 	}
 	return errors.NoError
 }
-
+*/
 func (this *User) Reviews(skip, limit int) (total int, reviews []Review, errId int) {
 	err := search(reviewColl, bson.M{"userid": this.Userid}, nil, skip, limit, []string{"-ctime"}, &total, &reviews)
 	if err != nil {
@@ -216,6 +304,7 @@ func (this *User) Events(skip, limit int) (total int, events []Event, errId int)
 	return
 }
 
+/*
 func (this *User) NewEventCount() (count int, errId int) {
 	err := search(eventColl, bson.M{"owner": this.Userid, "read": false}, nil, 0, 0, nil, &count, nil)
 	if err != nil {
@@ -225,6 +314,7 @@ func (this *User) NewEventCount() (count int, errId int) {
 	errId = errors.NoError
 	return
 }
+
 
 func (this *User) ReadEvents(ids []string) (count int, errId int) {
 	errId = errors.NoError
@@ -247,9 +337,10 @@ func (this *User) ReadEvents(ids []string) (count int, errId int) {
 		return err
 	}
 
-	if err := withCollection(eventColl, update); err != nil {
+	if err := withCollection(eventColl, nil, update); err != nil {
 		errId = errors.DbError
 	}
 
 	return
 }
+*/

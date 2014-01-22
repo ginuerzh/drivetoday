@@ -9,7 +9,7 @@ import (
 	//simplejson "github.com/bitly/go-simplejson"
 	"github.com/codegangsta/martini-contrib/binding"
 	errs "github.com/ginuerzh/drivetoday/errors"
-	"github.com/ginuerzh/drivetoday/models"
+	//"github.com/ginuerzh/drivetoday/models"
 	"github.com/nu7hatch/gouuid"
 	"io"
 	//"io/ioutil"
@@ -35,6 +35,24 @@ const (
 	ImageSmall
 )
 
+const (
+	GuestUserPrefix = "guest:"
+
+	UserTypeEmail = "usrpass"
+	UserTypeWeibo = "weibo"
+	UserTypeGuest = "guest"
+)
+
+const (
+	AccessRate = 1 << iota // 001
+	ThumbRate              // 010
+	ReviewRate             // 100
+
+	AccessRateMask = 6 // 110
+	ThumbRateMask  = 5 // 101
+	ReviewRateMask = 3 // 011
+)
+
 type response struct {
 	ReqPath  string      `json:"req_path"`
 	RespData interface{} `json:"response_data"`
@@ -52,8 +70,11 @@ func writeResponse(uri string, resp http.ResponseWriter, data interface{}, errId
 	if errId == errs.DbError {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
-	if errId == errs.FileNotFoundError {
+	if errId == errs.NotFoundError {
 		resp.WriteHeader(http.StatusNotFound)
+	}
+	if errId == errs.AccessError {
+		resp.WriteHeader(http.StatusUnauthorized)
 	}
 	resp.Write(r)
 
@@ -102,6 +123,7 @@ func ErrorHandler(err binding.Errors, request *http.Request, resp http.ResponseW
 	}
 }
 
+/*
 func userAuth(accessToken string, e *binding.Errors) (user models.User) {
 	find, err := user.FindByAccessToken(accessToken)
 	if find {
@@ -117,20 +139,29 @@ func userAuth(accessToken string, e *binding.Errors) (user models.User) {
 
 	return
 }
-
+*/
 func imageUrl(fid string, size ImageSize) string {
 	var url string
-	id, _, _, err := weedo.ParseFid(fid)
-	if err != nil {
-		return url
+	var err error
+	s := strings.Split(fid, ",")
+	if len(s) < 2 {
+		return ""
 	}
+
+	id, _ := strconv.ParseUint(s[0], 10, 64)
 	if url, _, err = weedo.Lookup(id); err != nil {
 		return url
 	}
 
-	s := strings.Split(fid, ",")
 	if size == ImageOriginal {
+		if len(s) >= 3 {
+			return "http://" + url + "/" + s[0] + "/" + s[1] + "/" + s[2] + ".jpg"
+		}
 		return "http://" + url + "/" + s[0] + "/" + s[1] + ".jpg"
+	}
+
+	if len(s) >= 4 {
+		return "http://" + url + "/" + s[0] + "/" + s[1] + "_" + strconv.Itoa(int(size)) + "/" + s[3] + ".jpg"
 	}
 	return "http://" + url + "/" + s[0] + "/" + s[1] + "_" + strconv.Itoa(int(size)) + ".jpg"
 }

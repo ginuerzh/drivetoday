@@ -29,19 +29,14 @@ func BindReviewApi(m *martini.ClassicMartini) {
 }
 
 type reviewListForm struct {
-	ArticleId   string      `form:"article_id" json:"article_id"`
-	PageNumber  int         `form:"page_number" json:"page_number"`
-	AccessToken string      `form:"access_token" json:"access_token"`
-	User        models.User `form:"-"`
+	ArticleId   string `form:"article_id" json:"article_id"`
+	PageNumber  int    `form:"page_number" json:"page_number"`
+	AccessToken string `form:"access_token" json:"access_token"`
 }
 
 func (form *reviewListForm) Validate(e *binding.Errors, req *http.Request) {
-	if len(form.ArticleId) > 0 {
-		if !bson.IsObjectIdHex(form.ArticleId) {
-			e.Fields["id"] = "invalid article id"
-		}
-	} else {
-		form.User = userAuth(form.AccessToken, e)
+	if len(form.ArticleId) > 0 && !bson.IsObjectIdHex(form.ArticleId) {
+		e.Fields["id"] = "invalid article id"
 	}
 }
 
@@ -54,7 +49,7 @@ type reviewJsonStruct struct {
 	Ctime     string `json:"time"`
 }
 
-func reviewListHandler(request *http.Request, resp http.ResponseWriter, form reviewListForm) {
+func reviewListHandler(request *http.Request, resp http.ResponseWriter, form reviewListForm, redis *RedisLogger) {
 	var total, err int
 	var reviews []models.Review
 
@@ -62,8 +57,6 @@ func reviewListHandler(request *http.Request, resp http.ResponseWriter, form rev
 		article := models.Article{}
 		article.Id = bson.ObjectIdHex(form.ArticleId)
 		total, reviews, err = article.Reviews(DefaultPageSize*form.PageNumber, DefaultPageSize)
-	} else {
-		total, reviews, err = form.User.Reviews(DefaultPageSize*form.PageNumber, DefaultPageSize)
 	}
 
 	if err != errors.NoError {
@@ -91,10 +84,9 @@ func reviewListHandler(request *http.Request, resp http.ResponseWriter, form rev
 }
 
 type newReviewForm struct {
-	ArticleId   string      `form:"article_id" json:"article_id"`
-	Content     string      `form:"contents" json:"contents"`
-	AccessToken string      `form:"access_token" json:"access_token"`
-	User        models.User `form"-" json:"-"`
+	ArticleId   string `form:"article_id" json:"article_id"`
+	Content     string `form:"contents" json:"contents"`
+	AccessToken string `form:"access_token" json:"access_token"`
 }
 
 func (form *newReviewForm) Validate(e *binding.Errors, req *http.Request) {
@@ -102,8 +94,6 @@ func (form *newReviewForm) Validate(e *binding.Errors, req *http.Request) {
 		e.Fields["id"] = "invalid article id"
 		return
 	}
-
-	form.User = userAuth(form.AccessToken, e)
 }
 
 func findMentions(review string) []string {
@@ -126,8 +116,14 @@ func findMentions(review string) []string {
 func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form newReviewForm) {
 	var review models.Review
 
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
+
 	review.ArticleId = form.ArticleId
-	review.Userid = form.User.Userid
+	review.Userid = userid
 	review.Content = form.Content
 	review.Ctime = time.Now()
 
@@ -147,7 +143,9 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 
 	writeResponse(request.RequestURI, resp, jsonStruct, err)
 
-	redis.LogArticleReview(form.ArticleId)
+	user := models.User{Userid: userid}
+	user.RateArticle(form.ArticleId, ReviewRate, false)
+	redis.LogArticleReview(userid, form.ArticleId)
 
 	for _, mention := range findMentions(review.Content) {
 		nickname := strings.TrimLeft(mention, "@")
@@ -160,10 +158,10 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 		event.Type = "review"
 		event.Ctime = time.Now()
 		event.ArticleId = form.ArticleId
-		event.User = form.User.Userid
+		event.User = userid
 		event.Owner = user.Userid
-		event.Read = false
-		event.Message = nickname + "在一条评论中提到了你！"
+		//event.Read = false
+		event.Message = nickname + "在评论中提到了你！"
 
 		if err := event.Save(); err == errors.NoError {
 			redis.LogUserMessages(event.Owner, event.Json())
@@ -172,11 +170,10 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 }
 
 type reviewThumbForm struct {
-	ArticleId   string      `form:"article_id" json:"article_id" binding:"required"`
-	ReviewId    string      `form:"review_id" json:"review_id" binding:"required"`
-	Status      bool        `form:"thumb_status" json:"thumb_status"`
-	AccessToken string      `form:"access_token" json:"access_token" binding:"required"`
-	User        models.User `form"-" json:"-"`
+	ArticleId   string `form:"article_id" json:"article_id"`
+	ReviewId    string `form:"review_id" json:"review_id" binding:"required"`
+	Status      bool   `form:"thumb_status" json:"thumb_status"`
+	AccessToken string `form:"access_token" json:"access_token" binding:"required"`
 }
 
 func (form *reviewThumbForm) Validate(e *binding.Errors, req *http.Request) {
@@ -184,21 +181,38 @@ func (form *reviewThumbForm) Validate(e *binding.Errors, req *http.Request) {
 		e.Fields["id"] = "invalid article id"
 		return
 	}
-	form.User = userAuth(form.AccessToken, e)
 }
 
 func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form reviewThumbForm) {
 	var review models.Review
+	var user models.User
+
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
+
+	if find, err := user.FindByUserId(userid); !find {
+		if err == errors.NoError {
+			err = errors.NotFoundError
+		}
+		writeResponse(request.RequestURI, resp, nil, err)
+		return
+	}
+	if user.Role == UserTypeGuest {
+		user.Nickname = "匿名用户"
+	}
 
 	if find, err := review.FindById(form.ReviewId); !find {
 		if err == errors.NoError {
-			err = errors.NotExistsError
+			err = errors.NotFoundError
 		}
 		writeResponse(request.RequestURI, resp, nil, err)
 		return
 	}
 
-	err := review.SetThumb(form.User.Userid, form.Status)
+	err := review.SetThumb(userid, form.Status)
 
 	writeResponse(request.RequestURI, resp, nil, err)
 
@@ -206,30 +220,26 @@ func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redi
 	event.Type = "thumb"
 	event.Ctime = time.Now()
 	event.ArticleId = form.ArticleId
-	event.User = form.User.Userid
+	event.User = userid
 	event.Owner = review.Userid
-	event.Read = false
-	event.Message = form.User.Nickname + "赞了你的评论!"
+	//event.Read = false
+	event.Message = user.Nickname + "赞了你的评论!"
 	if err := event.Save(); err == errors.NoError {
 		redis.LogUserMessages(event.Owner, event.Json())
 	}
-
-	/*
-		conn := pool.Get()
-		defer conn.Close()
-		if err != errors.NoError && form.Status {
-			conn.Send("RPUSH", "drivetoday:user:review:thumbs:"+review.Userid, form.User.Nickname)
-		}
-		if _, err := conn.Do("EXEC"); err != nil {
-			log.Println(err)
-		}
-	*/
 }
 
-func checkReviewThumbHandler(request *http.Request, resp http.ResponseWriter, form reviewThumbForm) {
+func checkReviewThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form reviewThumbForm) {
 	var review models.Review
+
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
+
 	review.Id = bson.ObjectIdHex(form.ReviewId)
-	thumbed, err := review.IsThumbed(form.User.Userid)
+	thumbed, err := review.IsThumbed(userid)
 	if err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)
 	}

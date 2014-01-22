@@ -3,7 +3,6 @@ package models
 
 import (
 	"github.com/ginuerzh/drivetoday/errors"
-	//"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"time"
 )
@@ -18,8 +17,8 @@ type Article struct {
 	AuthorPage string    `bson:"author_page"`
 	PubTime    time.Time `bson:"pub_time"`
 	Content    []string
-	Thumbs     []string `bson:",omitempty"`
-	Image      string
+	//Thumbs     []string `bson:",omitempty"`
+	Image string
 }
 
 func (this *Article) findOne(query interface{}) (bool, int) {
@@ -36,6 +35,7 @@ func (this *Article) findOne(query interface{}) (bool, int) {
 	return len(articles) > 0, errors.NoError
 }
 
+/*
 func (this *Article) SetThumb(userid string, thumb bool) int {
 	var change bson.M
 
@@ -67,6 +67,7 @@ func (this *Article) IsThumbed(userid string) (bool, int) {
 	}
 	return count > 0, errors.NoError
 }
+*/
 
 func (this *Article) FindById(id string) (bool, int) {
 	return this.findOne(bson.M{"_id": bson.ObjectIdHex(id)})
@@ -82,6 +83,7 @@ func (this *Article) Reviews(skip, limit int) (total int, reviews []Review, errI
 	return
 }
 
+/*
 func (this *Article) ReviewCount() (int, int) {
 	total := 0
 	err := search(reviewColl, bson.M{"article_id": this.Id.Hex()}, nil, 0, 0, nil, &total, nil)
@@ -90,9 +92,28 @@ func (this *Article) ReviewCount() (int, int) {
 	}
 	return total, errors.NoError
 }
+*/
+func (this *Article) LoadBrief() int {
+	var articles []Article
+	if err := search(articleColl, bson.M{"_id": this.Id}, bson.M{"content": false}, 0, 1, nil, nil, &articles); err != nil {
+		return errors.DbError
+	}
 
-func GetArticleList(skip, limit int) (articles []Article, errId int) {
-	err := search(articleColl, nil, nil, skip, limit, []string{"-pub_time"}, nil, &articles)
+	if len(articles) > 0 {
+		*this = articles[0]
+	}
+	return errors.NoError
+}
+
+func GetArticles(articleIds ...string) (articles []Article, errId int) {
+	ids := make([]bson.ObjectId, len(articleIds))
+	for i, _ := range articleIds {
+		ids[i] = bson.ObjectIdHex(articleIds[i])
+	}
+	err := search(articleColl,
+		bson.M{"_id": bson.M{"$in": ids}},
+		bson.M{"content": false},
+		0, 0, []string{"-pub_time"}, nil, &articles)
 	if err != nil {
 		return nil, errors.DbError
 	}
@@ -102,7 +123,7 @@ func GetArticleList(skip, limit int) (articles []Article, errId int) {
 }
 
 func GetBriefArticles(skip, limit int) (total int, articles []Article, errId int) {
-	err := search(articleColl, nil, bson.M{"content": false, "thumbs": false}, skip, limit, []string{"-pub_time"}, &total, &articles)
+	err := search(articleColl, nil, bson.M{"content": false}, skip, limit, []string{"-pub_time"}, &total, &articles)
 	if err != nil {
 		return 0, nil, errors.DbError
 	}
@@ -110,3 +131,17 @@ func GetBriefArticles(skip, limit int) (total int, articles []Article, errId int
 	errId = errors.NoError
 	return
 }
+
+/*
+func RandomArticles(excludes []string, max int) (article []Article, errId int) {
+	ids := make([]bson.ObjectId, len(excludes))
+	for i, _ := range excludes {
+		ids[i] = bson.ObjectIdHex(excludes[i])
+	}
+
+	selector := bson.M{
+		"_id":bson.M{"$nin": ids},
+		"random":
+	}
+}
+*/

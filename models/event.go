@@ -4,7 +4,7 @@ package models
 import (
 	"encoding/json"
 	"github.com/ginuerzh/drivetoday/errors"
-	"labix.org/v2/mgo"
+	//"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
 	"time"
@@ -54,12 +54,8 @@ func (this *Event) findOne(query interface{}) (bool, int) {
 func (this *Event) Save() (errId int) {
 	errId = errors.NoError
 
-	insert := func(c *mgo.Collection) error {
-		this.Id = bson.NewObjectId()
-		return c.Insert(this)
-	}
-
-	if err := withCollection(eventColl, insert); err != nil {
+	this.Id = bson.NewObjectId()
+	if err := save(eventColl, this); err != nil {
 		errId = errors.DbError
 	}
 	return
