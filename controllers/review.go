@@ -220,7 +220,9 @@ func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redi
 	event.Type = "thumb"
 	event.Ctime = time.Now()
 	event.ArticleId = form.ArticleId
-	event.User = userid
+	if user.Role != UserTypeGuest {
+		event.User = userid
+	}
 	event.Owner = review.Userid
 	//event.Read = false
 	event.Message = user.Nickname + "赞了你的评论!"

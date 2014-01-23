@@ -29,8 +29,8 @@ type ImageSize int
 
 const (
 	ImageOriginal ImageSize = iota
-	ImageThumbnail
 	ImageBig
+	ImageThumbnail
 	ImageMedium
 	ImageSmall
 )

@@ -89,7 +89,7 @@ func newEventsHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 
 type eventReadForm struct {
 	AccessToken string   `form:"access_token" json:"access_token" binding:"required"`
-	Ids         []string `form:"event_ids" json:"event_ids" binding:"required"`
+	Ids         []string `form:"event_ids" json:"event_ids"`
 }
 
 func eventReadHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventReadForm) {

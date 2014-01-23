@@ -172,7 +172,7 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 			strings.HasSuffix(text, "[fid]") {
 			fid := strings.TrimSuffix(strings.TrimPrefix(text, "[fid]"), "[fid]")
 			contents[i] = contentObject{ContentType: "image",
-				ContentText: imageUrl(fid, ImageThumbnail),
+				ContentText: imageUrl(fid, ImageBig),
 				ImageUrl:    imageUrl(fid, ImageOriginal),
 			}
 		} else {
