@@ -60,6 +60,16 @@ type articleJsonStruct struct {
 	Content []contentObject `json:"content"`
 }
 
+func articleSource(s string) string {
+	if s == "autohome" {
+		return "汽车之家"
+	} else if s == "bitauto" {
+		return "易车网"
+	} else {
+		return s
+	}
+}
+
 func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleListForm) {
 	total, articles, err := models.GetBriefArticles(DefaultPageSize*form.PageNumber, DefaultPageSize)
 	if err != errors.NoError {
@@ -82,7 +92,7 @@ func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *
 	for i, _ := range articles {
 		jsonStructs[i].Id = ids[i]
 		jsonStructs[i].Title = articles[i].Title
-		jsonStructs[i].Source = articles[i].Source
+		jsonStructs[i].Source = articleSource(articles[i].Source)
 		jsonStructs[i].Url = articles[i].Url
 		jsonStructs[i].PubTime = articles[i].PubTime.Format(TimeFormat)
 		jsonStructs[i].Thumbs = redis.ArticleThumbCount(articles[i].Id.Hex())
@@ -140,7 +150,7 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 
 	jsonStruct.Id = article.Id.Hex()
 	jsonStruct.Title = article.Title
-	jsonStruct.Source = article.Source
+	jsonStruct.Source = articleSource(article.Source)
 	jsonStruct.Url = article.Url
 	jsonStruct.PubTime = article.PubTime.Format(TimeFormat)
 	jsonStruct.Reviews = redis.ArticleReviewCount(form.Id)
