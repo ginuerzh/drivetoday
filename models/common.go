@@ -114,3 +114,11 @@ func save(collection string, o interface{}) error {
 
 	return withCollection(collection, nil, insert)
 }
+
+func ensureIndex(collection string, keys ...string) error {
+	ensure := func(c *mgo.Collection) error {
+		return c.EnsureIndexKey(keys...)
+	}
+
+	return withCollection(collection, nil, ensure)
+}

@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+func init() {
+	ensureIndex(eventColl, "owner", "-ctime")
+}
+
 type Event struct {
 	Id        bson.ObjectId `bson:"_id,omitempty"`
 	Type      string

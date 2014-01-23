@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+func init() {
+	ensureIndex(fileColl, "fid")
+	ensureIndex(fileColl, "-uploadDate")
+}
+
 type File struct {
 	Id          bson.ObjectId `bson:"_id,omitempty"`
 	Fid         string

@@ -15,6 +15,9 @@ var (
 
 func init() {
 	//dur, _ = time.ParseDuration("-30h") // auto logout after 15 minutes since last access
+	ensureIndex(userCollection, "userid", "password")
+	ensureIndex(userCollection, "nickname")
+	ensureIndex(userCollection, "-reg_time")
 }
 
 type User struct {

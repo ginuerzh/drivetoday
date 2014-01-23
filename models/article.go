@@ -3,9 +3,15 @@ package models
 
 import (
 	"github.com/ginuerzh/drivetoday/errors"
+	//"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"log"
 	"time"
 )
+
+func init() {
+	ensureIndex(articleColl, "-pub_time")
+}
 
 type Article struct {
 	Id         bson.ObjectId `bson:"_id,omitempty"`
@@ -125,6 +131,7 @@ func GetArticles(articleIds ...string) (articles []Article, errId int) {
 func GetBriefArticles(skip, limit int) (total int, articles []Article, errId int) {
 	err := search(articleColl, nil, bson.M{"content": false}, skip, limit, []string{"-pub_time"}, &total, &articles)
 	if err != nil {
+		log.Println(err)
 		return 0, nil, errors.DbError
 	}
 

@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+func init() {
+	ensureIndex(reviewColl, "userid", "-ctime")
+}
+
 type Review struct {
 	Id        bson.ObjectId `bson:"_id,omitempty"`
 	ArticleId string        `bson:"article_id"`

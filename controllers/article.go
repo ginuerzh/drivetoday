@@ -117,19 +117,23 @@ type articleInfoForm struct {
 	ThumbCount  bool   `form:"bl_thumb_count"`
 	Image       bool   `form:"bl_frist_image"`
 	Content     bool   `form:"bl_content"`
-	AccessToken string `form:"access_token" binding:"required"`
+	AccessToken string `form:"access_token"`
 }
 
 func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleInfoForm) {
 	userid := redis.OnlineUser(form.AccessToken)
-	if len(userid) == 0 {
-		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
-		return
-	}
+	/*
+		if len(userid) == 0 {
+			writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+			return
+		}
+	*/
 
-	user := models.User{Userid: userid}
-	user.RateArticle(form.Id, AccessRate, false)
-	redis.LogArticleView(form.Id, userid)
+	if len(userid) > 0 {
+		user := models.User{Userid: userid}
+		user.RateArticle(form.Id, AccessRate, false)
+		redis.LogArticleView(form.Id, userid)
+	}
 
 	article := models.Article{}
 	jsonStruct := &articleJsonStruct{}

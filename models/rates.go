@@ -6,6 +6,10 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
+func init() {
+	ensureIndex(rateColl, "userid")
+}
+
 type ArticleRate struct {
 	Article string
 	Rate    int
