@@ -5,7 +5,7 @@ import (
 	"github.com/codegangsta/martini"
 	"github.com/ginuerzh/drivetoday/controllers"
 	"log"
-	//"net/http"
+	"net/http"
 	"os"
 )
 
@@ -36,6 +36,6 @@ func main() {
 	controllers.BindEventApi(m)
 	controllers.BindStatApi(m)
 
-	m.Run()
-	//http.ListenAndServe(":8080", m)
+	//m.Run()
+	http.ListenAndServe(":8080", m)
 }
