@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<!-- Bootstrap -->
+<link href="/css/bootstrap.css" rel="stylesheet" media="screen">
+
+<!-- JavaScript plugins (requires jQuery) -->
+<script src="/js/jquery-2.0.3.js"></script>
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="/js/bootstrap.js"></script>
+
+<script src="/js/util.js"></script>
+
+<title>今日自驾</title>
+
+<style type="text/css">
+a:hover {text-decoration: none}
+.container {
+	width: 40%;
+	margin-left: auto;
+	margin-right: auto;
+	margin-top: 100px;
+	margin-bottom: 100px;  
+}
+
+</style>
+
+<script type="text/javascript" >
+
+function getStat(data) {
+	err = data['error']
+	if (err['error_id'] != 0)
+		return null
+		
+	return data['response_data']
+}
+
+$(function(){
+	$.getJSON(host + "/1/stat", function(data){
+		var stat = getStat(data)
+		if (stat == null) return
+	})
+})
+</script>
+
+</head>
+<body>
+<div class="container">
+</div>
+</body>
+</html>
