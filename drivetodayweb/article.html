@@ -11,17 +11,11 @@
 <script src="/js/bootstrap.js"></script>
 
 <script src="/js/util.js"></script>
+<link href="/css/util.css" rel="stylesheet">
 
 <title>今日自驾</title>
 
 <style type="text/css">
-a:hover {text-decoration: none}
-.container {
-	margin-left: auto;
-	margin-right: auto;
-	margin-top: 100px;
-	margin-bottom: 50px;
-}
 
 .title {
 	margin-bottom: 30px;  
@@ -46,27 +40,9 @@ a:hover {text-decoration: none}
 <script type="text/javascript" >
 
 function getReviews(data) {
-	err = data['error']
-	if (err['error_id'] != 0)
-		return null
-		
-	return data['response_data']['reviews']
-}
-
-function getArticle(data) {
-	err = data['error']
-	if (err['error_id'] != 0)
-		return null
-		
-	return data['response_data']
-}
-
-function getUserInfo(data) {
-	err = data['error']
-	if (err['error_id'] != 0)
-		return null
-		
-	return data['response_data']
+ 	var resp = getResponse(data)
+ 	if (resp == null) 	return null
+ 	else 				return resp['reviews']
 }
 
 function createTitle(data) {
@@ -93,8 +69,14 @@ function createTitle(data) {
 
 function createReview(data) {
 	var review = $('<div class="row">')
-	var profile = $('<img class="profile">')
-	var nickname = $('<span>').text(data['review_author'])
+	var profile = $('<img class="profile" src="/images/1.gif">')
+	var nickname = $('<span>')
+	if (data['review_author'].indexOf('guest:') == 0) {
+		nickname.text('匿名用户')
+	} else {
+		nickname.text(data['review_author'])
+		nickname = link(host+'/user.html?uid=' + data['review_author'], nickname)
+	}
 	var reviewtime = $('<span class="review-time">').text(data['time'].substring(2, 16))
 	
 	review.append(col(1, profile))
@@ -103,10 +85,10 @@ function createReview(data) {
 	review.append(col(2, data['thumb_count'] + '赞'))
 	
 	$.getJSON(host + "/1/user/getInfo?userid=" + data['review_author'], function(data){
-		var userinfo = getUserInfo(data)
+		var userinfo = getResponse(data)
 		if (userinfo == null) return
 		
-		profile.attr('src', userinfo['profile_image'])
+		if (userinfo['profile_image'].length > 0) profile.attr('src', userinfo['profile_image'])
 		nickname.text(userinfo['nikename'])
 	})
 	
@@ -118,7 +100,7 @@ $(function(){
 	var aid = url.substring(url.lastIndexOf("=") + 1, url.length)
 	
 	$.getJSON(host + "/1/article/get?article_id=" + aid, function(data){
-		var article = getArticle(data)
+		var article = getResponse(data)
 		if (article == null) return
 		
 		$(".title").append(createTitle(article))

@@ -11,28 +11,19 @@
 <script src="/js/bootstrap.js"></script>
 
 <script src="/js/util.js"></script>
+<link href="/css/util.css" rel="stylesheet">
 
 <title>今日自驾</title>
 
 <style type="text/css">
-a:hover {text-decoration: none}
-.container {
-	margin-left: auto;
-	margin-right: auto;
-	margin-top: 100px;
-	margin-bottom: 100px;  
-}
-
 </style>
 
 <script type="text/javascript" >
 
 function getArticles(data) {
-	err = data['error']
-	if (err['error_id'] != 0)
-		return null
-		
-	return data['response_data']['articles_without_content']
+	var resp = getResponse(data)
+ 	if (resp == null) 	return null
+ 	else 				return resp['articles_without_content']
 }
 
 function createArticle(data) {
@@ -55,19 +46,6 @@ function createArticle(data) {
 	article.append(detail)
 	
 	return $('<div class="row">').append(col(12, panel(article)))
-}
-
-function pagination(current, total, href) {
-	var pg = $('<ul class="pager">')
-	if (current > 0) {
-		pg.append($('<li class="pull-left">').append(link(href + (current - 1), '上一页')))
-	}
-	
-	if (current + 1 < total) {
-			pg.append($('<li class="pull-right">').append(link(href + (current + 1), '下一页')))
-	}
-	
-	return pg
 }
 
 $(function(){

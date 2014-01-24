@@ -34,7 +34,7 @@ type User struct {
 	RegTime  time.Time     `bson:"reg_time"`
 	Role     string        `bson:",omitempty"`
 	//Online        bool
-	LastAccess time.Time `bson:"last_access,omitempty"`
+	//LastAccess time.Time `bson:"last_access,omitempty"`
 	//ThumbArticles []string  `bson:"thumb_articles,omitempty"`
 	//AccessToken string `bson:"access_token,omitempty"`
 }
@@ -347,3 +347,14 @@ func (this *User) ReadEvents(ids []string) (count int, errId int) {
 	return
 }
 */
+
+func UserList(skip, limit int) (total int, users []User, errId int) {
+	err := search(userCollection, nil, nil, skip, limit, []string{"-reg_time"}, &total, &users)
+	if err != nil {
+		//log.Println(err)
+		return 0, nil, errors.DbError
+	}
+
+	errId = errors.NoError
+	return
+}

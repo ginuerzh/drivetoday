@@ -124,6 +124,12 @@ func (logger *RedisLogger) Onlines() int {
 	return count
 }
 
+func (logger *RedisLogger) IsOnline(userid string) bool {
+	conn := logger.conn
+	online, _ := redis.Bool(conn.Do("SISMEMBER", redisUserOnlinesPrefix+onlineTimeString(), userid))
+	return online
+}
+
 func (logger *RedisLogger) setsCount(key string, days int) []int64 {
 	if days <= 0 {
 		days = 1
@@ -340,6 +346,32 @@ func (logger *RedisLogger) ViewedArticles(userid string) []string {
 	return values
 }
 
+func (logger *RedisLogger) UserArticleCount(userid string) (view, thumb, review int64) {
+	conn := logger.conn
+	count, _ := redis.Int(conn.Do("ZCARD", redisUserArticlePrefix+userid))
+	values, _ := redis.Values(conn.Do("ZRANGE", redisUserArticlePrefix+userid, 0, count, "WITHSCORES"))
+
+	var articles []KV
+
+	if err := redis.ScanSlice(values, &articles); err != nil {
+		log.Println(err)
+		return
+	}
+
+	for i, _ := range articles {
+		view++
+
+		if articles[i].V > AccessRate {
+			thumb++
+		}
+		if articles[i].V > ThumbRate {
+			review++
+		}
+	}
+
+	return
+}
+
 func (logger *RedisLogger) ArticleCount(articleId string) (view, thumb, review int64) {
 	conn := logger.conn
 	conn.Send("MULTI")
@@ -458,7 +490,7 @@ func (logger *RedisLogger) LogArticleReview(userid, articleId string) {
 	conn.Send("MULTI")
 	conn.Send("ZINCRBY", redisStatArticleReview, 1, articleId)
 	conn.Send("SADD", redisArticleReviewPrefix+articleId, userid)
-	conn.Send("ZADD", redisUserArticlePrefix+userid, ReviewRate, articleId)
+	conn.Send("ZADD", redisUserArticlePrefix+userid, ReviewRate|AccessRate, articleId)
 	conn.Do("EXEC")
 }
 
@@ -493,7 +525,7 @@ func (logger *RedisLogger) LogArticleThumb(userid, articleId string, thumb bool)
 	conn.Send("ZINCRBY", redisStatArticleThumb, inc, articleId)
 	if thumb {
 		conn.Send("SADD", redisArticleThumbPrefix+articleId, userid)
-		conn.Send("ZADD", redisUserArticlePrefix+userid, ThumbRate, articleId)
+		conn.Send("ZADD", redisUserArticlePrefix+userid, ThumbRate|AccessRate, articleId)
 	} else {
 		conn.Send("SREM", redisArticleThumbPrefix+articleId, userid)
 	}

@@ -24,6 +24,7 @@ const (
 	UserInfoV1Uri     = "/1/user/getInfo"
 	SetProfileV1Uri   = "/1/user/set_profile_image"
 	UserNewsV1Uri     = "/1/user/news"
+	UserListV1Uri     = "/1/users"
 )
 
 const (
@@ -42,6 +43,7 @@ func BindUserApi(m *martini.ClassicMartini) {
 	m.Get(UserInfoV1Uri, binding.Form(getInfoForm{}), ErrorHandler, userInfoHandler)
 	m.Post(SetProfileV1Uri, binding.Json(setProfileForm{}), ErrorHandler, setProfileHandler)
 	//m.Get(UserNewsV1Uri, binding.Form(userNewsForm{}), ErrorHandler, userNewsHandler)
+	m.Get(UserListV1Uri, binding.Form(userListForm{}), ErrorHandler, userListHandler)
 }
 
 // user register parameter
@@ -60,7 +62,7 @@ func registerHandler(request *http.Request, resp http.ResponseWriter, redis *Red
 	user.Password = Md5(form.Password)
 	user.Role = form.Role
 	user.RegTime = time.Now()
-	user.LastAccess = time.Now()
+	//user.LastAccess = time.Now()
 	//user.Online = true
 
 	if exists, _ := user.CheckExists(); exists {
@@ -213,6 +215,21 @@ type getInfoForm struct {
 	Userid string `form:"userid" json:"userid" binding:"required"`
 }
 
+type userJsonStruct struct {
+	Userid   string `json:"userid"`
+	Nickname string `json:"nikename"`
+	Type     string `json:"account_type"`
+	Phone    string `json:"phone_number"`
+	About    string `json:"about"`
+	Location string `json:"location"`
+	Profile  string `json:"profile_image"`
+	RegTime  string `json:"register_time"`
+	Views    int64  `json:"view_count"`
+	Thumbs   int64  `json:"thumb_count"`
+	Reviews  int64  `json:"review_count"`
+	Online   bool   `json:"online"`
+}
+
 func userInfoHandler(request *http.Request, resp http.ResponseWriter, form getInfoForm) {
 	var user models.User
 
@@ -263,4 +280,43 @@ type userNewsForm struct {
 
 func userNewsHandler(request *http.Request, resp http.ResponseWriter, form userNewsForm) {
 	writeResponse(request.RequestURI, resp, nil, errors.NoError)
+}
+
+type userListForm struct {
+	PageNumber  int    `form:"page_number" json:"page_number"`
+	AccessToken string `form:"access_token" json:"access_token"`
+}
+
+func userListHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form userListForm) {
+	pageSize := DefaultPageSize + 3
+	total, users, err := models.UserList(pageSize*form.PageNumber, pageSize)
+	if err != errors.NoError {
+		writeResponse(request.RequestURI, resp, nil, err)
+		return
+	}
+
+	jsonStructs := make([]userJsonStruct, len(users))
+	for i, _ := range users {
+		view, thumb, review := redis.UserArticleCount(users[i].Userid)
+
+		jsonStructs[i].Userid = users[i].Userid
+		jsonStructs[i].Nickname = users[i].Nickname
+		jsonStructs[i].Type = users[i].Role
+		jsonStructs[i].Profile = users[i].Profile
+		jsonStructs[i].Phone = users[i].Phone
+		jsonStructs[i].Location = users[i].Location
+		jsonStructs[i].About = users[i].About
+		jsonStructs[i].RegTime = users[i].RegTime.Format(TimeFormat)
+		jsonStructs[i].Views = view
+		jsonStructs[i].Thumbs = thumb
+		jsonStructs[i].Reviews = review
+		jsonStructs[i].Online = redis.IsOnline(users[i].Userid)
+	}
+
+	respData := make(map[string]interface{})
+	respData["page_number"] = form.PageNumber
+	respData["page_more"] = pageSize*(form.PageNumber+1) < total
+	respData["total"] = total
+	respData["users"] = jsonStructs
+	writeResponse(request.RequestURI, resp, respData, err)
 }
