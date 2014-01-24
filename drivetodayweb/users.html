@@ -23,6 +23,18 @@
 	margin-top: 4px;
 }
 
+.offline {
+	color: lightgray;
+}
+
+.online {
+	color: green;
+}
+
+.stat {
+	float: right;
+}
+
 </style>
 
 <script type="text/javascript" >
@@ -34,9 +46,9 @@ function getUsers(data) {
 
 function statusIcon(online) {
 	if (online)
-		return $('<span class="status online">')
+		return $('<span class="glyphicon glyphicon-user online">')
 	else
-		return $('<span class="status offline">')
+		return $('<span class="glyphicon glyphicon-user offline">')
 }
 
 function createUser(data) {
@@ -44,26 +56,22 @@ function createUser(data) {
 	var profile = $('<img class="profile" src="/images/1.gif">')
 	if (data['profile_image'].length > 0) profile.attr('src', data['profile_image'])	
 	
-	var nickname = $('<span>').text(data['nikename'])
-	if (data['online']) {
-		nickname.append('(在线)')
-	} else {
-			nickname.append('(离线)')
-	}
+	var nickname = $('<span>').append(statusIcon(data['online'])).append(' ' + data['nikename'])
+	
 	var regtime = $('<span class="reg-time">').text(data['register_time'])
 	var location = $('<span>').text(data['location'])
 	var about = $('<span>').text(data['about'])
 	
-	var view = $('<span>').text(data['view_count'])
-	var thumb = $('<span>').text(data['thumb_count'])
-	var review = $('<span>').text(data['review_count'])
+	var view = $('<span class="stat">').append(data['view_count'] + ' ').append(glyphicon('eye-open'))
+	var thumb = $('<span class="stat">').append(data['thumb_count'] + ' ').append(glyphicon('thumbs-up'))
+	var review = $('<span class="stat">').append(data['review_count'] + ' ').append(glyphicon('comment'))
 	
 	user.append(col(2, profile))
-	user.append(col(8, link(host+'/user.html?uid=' + data['userid'], nickname)).
+	user.append(col(6, link(host+'/user.html?uid=' + data['userid'], nickname)).
 			append('<br>', regtime).
 			append('<br>', location).
 			append('<br>', about))
-	user.append(col(2).append(view, $('<br>'), thumb, $('<br>'), review))
+	user.append(col(4).append(view, $('<br>'), thumb, $('<br>'), review))
 	
 	return col(4, panel(user))
 }

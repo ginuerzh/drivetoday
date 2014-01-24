@@ -38,9 +38,15 @@ function createArticle(data) {
 	
 	info.append(col(2, link(data['src_link'], data['source'], true)))
 	info.append(col(3, data['publish_time']))
-	info.append(col(2, data['view_count'] + '查看'))
-	info.append(col(2, data['thumb_count'] + '赞'))
-	info.append(col(2, data['comment_count'] + '评论'))
+	
+	var view = $('<span class="stat">').append(data['view_count'] + ' ').append(glyphicon('eye-open'))
+	var thumb = $('<span class="stat">').append(data['thumb_count'] + ' ').append(glyphicon('thumbs-up'))
+	var review = $('<span class="stat">').append(data['comment_count'] + ' ').append(glyphicon('comment'))	
+	
+	
+	info.append(col(2, view))
+	info.append(col(2, thumb))
+	info.append(col(2, review))
 	detail.append(info)
 	
 	article.append(detail)

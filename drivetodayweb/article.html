@@ -57,9 +57,14 @@ function createTitle(data) {
 	
 	info.append(col(2, link(data['src_link'], data['source'])))
 	info.append(col(3, data['publish_time']))
-	info.append(col(2, data['view_count'] + '查看'))
-	info.append(col(2, data['thumb_count'] + '赞'))
-	info.append(col(2, data['comment_count'] + '评论'))
+	
+	var view = $('<span class="stat">').append(data['view_count'] + ' ').append(glyphicon('eye-open'))
+	var thumb = $('<span class="stat">').append(data['thumb_count'] + ' ').append(glyphicon('thumbs-up'))
+	var review = $('<span class="stat">').append(data['comment_count'] + ' ').append(glyphicon('comment'))		
+	
+	info.append(col(2, view))
+	info.append(col(2, thumb))
+	info.append(col(2, review))
 	detail.append(info)
 	
 	article.append(detail)	
@@ -82,7 +87,9 @@ function createReview(data) {
 	review.append(col(1, profile))
 	review.append(col(3, link(host+'/user.html?uid=' + data['review_author'], nickname)).append('<br>', reviewtime))
 	review.append(col(6, data['message']))
-	review.append(col(2, data['thumb_count'] + '赞'))
+	
+	var thumb = $('<span class="stat">').append(data['thumb_count'] + ' ').append(glyphicon('thumbs-up'))
+	review.append(col(2, thumb))
 	
 	$.getJSON(host + "/1/user/getInfo?userid=" + data['review_author'], function(data){
 		var userinfo = getResponse(data)

@@ -22,6 +22,10 @@ function link(href, child, blank) {
 	return url
 }
 
+function glyphicon(name) {
+	return $('<span class="glyphicon glyphicon-' + name + '">')
+}
+
 function row(child) {
 	return $('<div class="row">').append(child)
 }
