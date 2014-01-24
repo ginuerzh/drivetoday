@@ -56,7 +56,11 @@ func reviewListHandler(request *http.Request, resp http.ResponseWriter, form rev
 	if len(form.ArticleId) > 0 {
 		article := models.Article{}
 		article.Id = bson.ObjectIdHex(form.ArticleId)
-		total, reviews, err = article.Reviews(DefaultPageSize*form.PageNumber, DefaultPageSize)
+		if form.PageNumber < 0 {
+			total, reviews, err = article.Reviews(0, 0)
+		} else {
+			total, reviews, err = article.Reviews(DefaultPageSize*form.PageNumber, DefaultPageSize)
+		}
 	}
 
 	if err != errors.NoError {
@@ -116,10 +120,7 @@ func findMentions(review string) []string {
 func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form newReviewForm) {
 	var review models.Review
 
-	conn := redis.Conn()
-	defer conn.Close()
-
-	userid := redis.OnlineUser(conn, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -148,7 +149,7 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 
 	user := models.User{Userid: userid}
 	user.RateArticle(form.ArticleId, ReviewRate, false)
-	redis.LogArticleReview(conn, userid, form.ArticleId)
+	redis.LogArticleReview(userid, form.ArticleId)
 
 	for _, mention := range findMentions(review.Content) {
 		nickname := strings.TrimLeft(mention, "@")
@@ -167,7 +168,7 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 		event.Message = nickname + "在评论中提到了你！"
 
 		if err := event.Save(); err == errors.NoError {
-			redis.LogUserMessages(conn, event.Owner, event.Json())
+			redis.LogUserMessages(event.Owner, event.Json())
 		}
 	}
 }
@@ -190,10 +191,7 @@ func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redi
 	var review models.Review
 	var user models.User
 
-	conn := redis.Conn()
-	defer conn.Close()
-
-	userid := redis.OnlineUser(conn, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -233,14 +231,14 @@ func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redi
 	//event.Read = false
 	event.Message = user.Nickname + "赞了你的评论!"
 	if err := event.Save(); err == errors.NoError {
-		redis.LogUserMessages(conn, event.Owner, event.Json())
+		redis.LogUserMessages(event.Owner, event.Json())
 	}
 }
 
 func checkReviewThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form reviewThumbForm) {
 	var review models.Review
 
-	userid := redis.OnlineUser(nil, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return

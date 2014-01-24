@@ -61,14 +61,14 @@ type articleJsonStruct struct {
 	Content []contentObject `json:"content"`
 }
 
+var sources = map[string]string{
+	"autohome": "汽车之家",
+	"bitauto":  "易车网",
+}
+
 func articleSource(s string) string {
-	if s == "autohome" {
-		return "汽车之家"
-	} else if s == "bitauto" {
-		return "易车网"
-	} else {
-		return s
-	}
+	source, _ := sources[s]
+	return source
 }
 
 func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleListForm) {
@@ -78,23 +78,20 @@ func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *
 		return
 	}
 
-	conn := redis.Conn()
-	defer conn.Close()
-
 	var reads []bool
 	ids := make([]string, len(articles))
 	for i, _ := range articles {
 		ids[i] = articles[i].Id.Hex()
 	}
 
-	userid := redis.OnlineUser(conn, form.AccessToken)
-	if reads = redis.ArticleView(conn, userid, ids...); reads == nil {
+	userid := redis.OnlineUser(form.AccessToken)
+	if reads = redis.ArticleView(userid, ids...); reads == nil {
 		reads = make([]bool, len(articles))
 	}
 
 	jsonStructs := make([]articleJsonStruct, len(articles))
 	for i, _ := range articles {
-		view, thumb, review := redis.ArticleCount(conn, ids[i])
+		view, thumb, review := redis.ArticleCount(ids[i])
 
 		jsonStructs[i].Id = ids[i]
 		jsonStructs[i].Title = articles[i].Title
@@ -128,10 +125,7 @@ type articleInfoForm struct {
 }
 
 func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleInfoForm) {
-	conn := redis.Conn()
-	defer conn.Close()
-
-	userid := redis.OnlineUser(conn, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	/*
 		if len(userid) == 0 {
 			writeResponse(request.RequestURI, resp, nil, errors.AccessError)
@@ -142,13 +136,13 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 	if len(userid) > 0 {
 		user := models.User{Userid: userid}
 		user.RateArticle(form.Id, AccessRate, false)
-		redis.LogArticleView(conn, form.Id, userid)
+		redis.LogArticleView(form.Id, userid)
 	}
 
 	article := models.Article{}
 	jsonStruct := &articleJsonStruct{}
 
-	data := redis.GetArticleCache(conn, form.Id)
+	data := redis.GetArticleCache(form.Id)
 	if len(data) > 0 {
 		writeRawResponse(resp, data)
 		return
@@ -162,7 +156,7 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 		return
 	}
 
-	view, thumb, review := redis.ArticleCount(conn, article.Id.Hex())
+	view, thumb, review := redis.ArticleCount(article.Id.Hex())
 
 	jsonStruct.Id = article.Id.Hex()
 	jsonStruct.Title = article.Title
@@ -196,7 +190,7 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 	}
 	jsonStruct.Content = contents
 	raw := writeResponse(request.RequestURI, resp, jsonStruct, errors.NoError)
-	redis.LogArticleCache(conn, form.Id, raw)
+	redis.LogArticleCache(form.Id, raw)
 }
 
 type articleThumbForm struct {
@@ -213,10 +207,7 @@ func (form *articleThumbForm) Validate(e *binding.Errors, req *http.Request) {
 }
 
 func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleThumbForm) {
-	conn := redis.Conn()
-	defer conn.Close()
-
-	userid := redis.OnlineUser(conn, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -233,16 +224,13 @@ func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, red
 		user.RateArticle(form.ArticleId, ThumbRateMask, true)
 	}
 
-	redis.LogArticleThumb(conn, userid, form.ArticleId, form.Status)
+	redis.LogArticleThumb(userid, form.ArticleId, form.Status)
 
 	writeResponse(request.RequestURI, resp, nil, errors.NoError)
 }
 
 func checkArticleThumbHandler(request *http.Request, resp http.ResponseWriter, form articleThumbForm, redis *RedisLogger) {
-	conn := redis.Conn()
-	defer conn.Close()
-
-	userid := redis.OnlineUser(conn, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -256,7 +244,7 @@ func checkArticleThumbHandler(request *http.Request, resp http.ResponseWriter, f
 		}
 	*/
 
-	respData := map[string]bool{"is_thumbed": redis.ArticleThumbed(conn, userid, form.ArticleId)}
+	respData := map[string]bool{"is_thumbed": redis.ArticleThumbed(userid, form.ArticleId)}
 	writeResponse(request.RequestURI, resp, respData, errors.NoError)
 }
 
@@ -296,7 +284,7 @@ func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form
 }
 */
 func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form relatedArticleForm, redis *RedisLogger) {
-	userid := redis.OnlineUser(nil, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return

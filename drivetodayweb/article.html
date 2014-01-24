@@ -27,10 +27,18 @@ a:hover {text-decoration: none}
 	margin-bottom: 30px;  
 }
 
-
+.review-time {
+	font-size: smaller;
+}
 
 .image {
 	width:620px;
+}
+
+.profile {
+	width: 30px;
+	height: 30px;
+	margin-top: 4px;
 }
 
 </style>
@@ -46,6 +54,14 @@ function getReviews(data) {
 }
 
 function getArticle(data) {
+	err = data['error']
+	if (err['error_id'] != 0)
+		return null
+		
+	return data['response_data']
+}
+
+function getUserInfo(data) {
 	err = data['error']
 	if (err['error_id'] != 0)
 		return null
@@ -76,15 +92,25 @@ function createTitle(data) {
 }
 
 function createReview(data) {
-	header = $('<div class="row">')
-	header.append($('<div class="col-md-3">').text(data['review_author']))
-	header.append($('<div class="col-md-6">').text(data['time']))
-	header.append($('<div class="col-md-3">').text(data['thumb_count'] + '赞'))
-
-	body = $('<div class="row">')
-	body.append($('<div class="col-md-12">').text(data['message']))
+	var review = $('<div class="row">')
+	var profile = $('<img class="profile">')
+	var nickname = $('<span>').text(data['review_author'])
+	var reviewtime = $('<span class="review-time">').text(data['time'].substring(2, 16))
 	
-	return panel(body,  header)
+	review.append(col(1, profile))
+	review.append(col(3, link(host+'/user.html?uid=' + data['review_author'], nickname)).append('<br>', reviewtime))
+	review.append(col(6, data['message']))
+	review.append(col(2, data['thumb_count'] + '赞'))
+	
+	$.getJSON(host + "/1/user/getInfo?userid=" + data['review_author'], function(data){
+		var userinfo = getUserInfo(data)
+		if (userinfo == null) return
+		
+		profile.attr('src', userinfo['profile_image'])
+		nickname.text(userinfo['nikename'])
+	})
+	
+	return panel(review)
 }
 
 $(function(){
@@ -112,7 +138,7 @@ $(function(){
 		$('.content').append(panel(contents))
 	})
 	
-	$.getJSON(host + "/1/review/list?article_id=" + aid, function(data){
+	$.getJSON(host + "/1/review/list?page_number=-1&article_id=" + aid, function(data){
 		var reviews = getReviews(data)
 		if (reviews == null) return
 		console.log(reviews)
@@ -129,11 +155,16 @@ $(function(){
 
 <div class="container">
 	<div class="row">
-		<div class="col-md-7 col-md-offset-1 title"></div>	
+		<div class="col-md-7 col-md-offset-2 title"></div>	
 	</div>
 	<div class="row">
-		<div class="col-md-7 col-md-offset-1 content"></div>	
-		<div class="col-md-4 reviews"></div>
+		<div class="col-md-7 content"></div>
+		<div class="col-md-5">
+			<div class="panel panel-default">
+				<div class="panel-heading">评论</div>
+				<div class="panel-body reviews"></div>		
+			</div>		
+		</div>
 	</div>
 </div>
 

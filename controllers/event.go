@@ -44,7 +44,7 @@ type eventJsonStruct struct {
 func eventListHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventListForm) {
 	var user models.User
 
-	userid := redis.OnlineUser(nil, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -77,16 +77,13 @@ func eventListHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 }
 
 func newEventsHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventListForm) {
-	conn := redis.Conn()
-	defer conn.Close()
-
-	userid := redis.OnlineUser(conn, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
 	}
 
-	respData := map[string]interface{}{"events_count": redis.MessageCount(conn, userid)}
+	respData := map[string]interface{}{"events_count": redis.MessageCount(userid)}
 	writeResponse(request.RequestURI, resp, respData, errors.NoError)
 }
 
@@ -96,17 +93,13 @@ type eventReadForm struct {
 }
 
 func eventReadHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventReadForm) {
-	//var user models.User
-	conn := redis.Conn()
-	defer conn.Close()
-
-	userid := redis.OnlineUser(conn, form.AccessToken)
+	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
 	}
 
-	redis.ClearMessages(conn, userid)
+	redis.ClearMessages(userid)
 	//user.Userid = userid
 	//count, err := user.ReadEvents(form.Ids)
 
