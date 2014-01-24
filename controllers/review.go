@@ -49,7 +49,7 @@ type reviewJsonStruct struct {
 	Ctime     string `json:"time"`
 }
 
-func reviewListHandler(request *http.Request, resp http.ResponseWriter, form reviewListForm, redis *RedisLogger) {
+func reviewListHandler(request *http.Request, resp http.ResponseWriter, form reviewListForm) {
 	var total, err int
 	var reviews []models.Review
 

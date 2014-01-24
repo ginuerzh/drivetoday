@@ -17,23 +17,33 @@
 <style type="text/css">
 a:hover {text-decoration: none}
 .container {
-	width: 37%;
 	margin-left: auto;
 	margin-right: auto;
+	margin-top: 100px;
+	margin-bottom: 50px;
 }
 
 .title {
-	margin-top: 100px;
 	margin-bottom: 30px;  
 }
 
-.content {
-	margin-bottom: 50px; 
+
+
+.image {
+	width:620px;
 }
 
 </style>
 
 <script type="text/javascript" >
+
+function getReviews(data) {
+	err = data['error']
+	if (err['error_id'] != 0)
+		return null
+		
+	return data['response_data']['reviews']
+}
 
 function getArticle(data) {
 	err = data['error']
@@ -49,7 +59,7 @@ function createTitle(data) {
 	var title = $('<div class="row">')
 	var info = $('<div class="row">')
 
-	console.log(data)
+	//console.log(data)
 	title.append(col(12, $('<h3>').text(data['title'])))
 	detail.append(title)
 	
@@ -65,12 +75,24 @@ function createTitle(data) {
 	return article	
 }
 
+function createReview(data) {
+	header = $('<div class="row">')
+	header.append($('<div class="col-md-3">').text(data['review_author']))
+	header.append($('<div class="col-md-6">').text(data['time']))
+	header.append($('<div class="col-md-3">').text(data['thumb_count'] + '赞'))
+
+	body = $('<div class="row">')
+	body.append($('<div class="col-md-12">').text(data['message']))
+	
+	return panel(body,  header)
+}
+
 $(function(){
 	var url = window.location.href
 	var aid = url.substring(url.lastIndexOf("=") + 1, url.length)
 	
 	$.getJSON(host + "/1/article/get?article_id=" + aid, function(data){
-		article = getArticle(data)
+		var article = getArticle(data)
 		if (article == null) return
 		
 		$(".title").append(createTitle(article))
@@ -80,7 +102,7 @@ $(function(){
 		$.each(article['content'], function(i, segment) {
 			var p = $('<p>')			
 			if (segment['seg_type'] == 'image') {
-				p.append($('<img>').attr('src', segment['image_orig']))
+				p.append($('<img class="image">').attr('src', segment['image_orig']))
 			} else {
 				p.append(segment['seg_content'])			
 			}
@@ -89,6 +111,15 @@ $(function(){
 		
 		$('.content').append(panel(contents))
 	})
+	
+	$.getJSON(host + "/1/review/list?article_id=" + aid, function(data){
+		var reviews = getReviews(data)
+		if (reviews == null) return
+		console.log(reviews)
+		$.each(reviews, function(i, review) {
+			$('.reviews').append(createReview(review))
+		})
+	})
 })
 
 </script>
@@ -96,10 +127,14 @@ $(function(){
 </head>
 <body>
 
-<div class="container title">
-
-</div>
-<div class="container content">
+<div class="container">
+	<div class="row">
+		<div class="col-md-7 col-md-offset-1 title"></div>	
+	</div>
+	<div class="row">
+		<div class="col-md-7 col-md-offset-1 content"></div>	
+		<div class="col-md-4 reviews"></div>
+	</div>
 </div>
 
 </body>
