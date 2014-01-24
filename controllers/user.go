@@ -68,6 +68,9 @@ func registerHandler(request *http.Request, resp http.ResponseWriter, redis *Red
 		return
 	}
 
+	conn := redis.Conn()
+	defer conn.Close()
+
 	if err := user.Save(); err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)
 	} else {
@@ -75,8 +78,8 @@ func registerHandler(request *http.Request, resp http.ResponseWriter, redis *Red
 		data := map[string]string{"access_token": accessToken}
 		writeResponse(request.RequestURI, resp, data, err)
 
-		redis.LogRegister(user.Userid)
-		redis.LogOnlineUser(accessToken, user.Userid)
+		redis.LogRegister(conn, user.Userid)
+		redis.LogOnlineUser(conn, accessToken, user.Userid)
 	}
 }
 
@@ -150,7 +153,7 @@ func weiboLogin(uid, password string, redis *RedisLogger) (*models.User, int) {
 	if err := user.Save(); err != errors.NoError {
 		return nil, err
 	}
-	redis.LogRegister(user.Userid)
+	redis.LogRegister(nil, user.Userid)
 
 	return user, errors.NoError
 }
@@ -196,7 +199,7 @@ func loginHandler(request *http.Request, resp http.ResponseWriter, form loginFor
 	data := map[string]string{"access_token": accessToken}
 	writeResponse(request.RequestURI, resp, data, errors.NoError)
 
-	redis.LogOnlineUser(accessToken, user.Userid)
+	redis.LogOnlineUser(nil, accessToken, user.Userid)
 }
 
 type logoutForm struct {
@@ -204,7 +207,7 @@ type logoutForm struct {
 }
 
 func logoutHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form logoutForm) {
-	redis.DelOnlineUser(form.AccessToken)
+	redis.DelOnlineUser(nil, form.AccessToken)
 	writeResponse(request.RequestURI, resp, nil, errors.NoError)
 
 }
@@ -246,7 +249,7 @@ type setProfileForm struct {
 func setProfileHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form setProfileForm) {
 	var user models.User
 
-	userid := redis.OnlineUser(form.AccessToken)
+	userid := redis.OnlineUser(nil, form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return

@@ -37,7 +37,7 @@ func (form *fileUploadForm) Validate(e *binding.Errors, req *http.Request) {
 }
 
 func fileUploadHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form fileUploadForm) {
-	userid := redis.OnlineUser(form.AccessToken)
+	userid := redis.OnlineUser(nil, form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -127,7 +127,7 @@ func (form *fileDeleteForm) Validate(e *binding.Errors, req *http.Request) {
 func fileDeleteHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form fileDeleteForm) {
 	var file models.File
 
-	userid := redis.OnlineUser(form.AccessToken)
+	userid := redis.OnlineUser(nil, form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return

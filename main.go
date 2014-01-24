@@ -19,7 +19,7 @@ func classic() *martini.ClassicMartini {
 	m.Use(controllers.LogRequestHandler)
 	m.Use(martini.Logger())
 	m.Use(martini.Recovery())
-	m.Use(martini.Static("public"))
+	m.Use(martini.Static("drivetodayweb"))
 	m.Action(r.Handle)
 	return &martini.ClassicMartini{m, r}
 }

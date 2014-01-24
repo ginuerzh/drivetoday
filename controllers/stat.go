@@ -17,15 +17,18 @@ func BindStatApi(m *martini.ClassicMartini) {
 }
 
 func serverStatHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger) {
-	respData := make(map[string]interface{})
-	respData["visitors"] = redis.VisitorsCount(3)
-	respData["pv"] = redis.PV(dateString(time.Now()))
-	respData["registers"] = redis.RegisterCount(3)
+	conn := redis.Conn()
+	defer conn.Close()
 
-	respData["top_views"] = redis.ArticleTopView(3, 3)
-	respData["top_reviews"] = redis.ArticleTopReview(3)
-	respData["top_thumbs"] = redis.ArticleTopThumb(3)
-	respData["onlines"] = redis.Onlines()
+	respData := make(map[string]interface{})
+	respData["visitors"] = redis.VisitorsCount(conn, 3)
+	respData["pv"] = redis.PV(conn, dateString(time.Now()))
+	respData["registers"] = redis.RegisterCount(conn, 3)
+
+	respData["top_views"] = redis.ArticleTopView(conn, 3, 3)
+	respData["top_reviews"] = redis.ArticleTopReview(conn, 3)
+	respData["top_thumbs"] = redis.ArticleTopThumb(conn, 3)
+	respData["onlines"] = redis.Onlines(conn)
 
 	writeResponse(request.RequestURI, resp, respData, errors.NoError)
 }

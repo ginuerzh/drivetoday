@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<!-- Bootstrap -->
+<link href="/css/bootstrap.css" rel="stylesheet" media="screen">
+
+<!-- JavaScript plugins (requires jQuery) -->
+<script src="/js/jquery-2.0.3.js"></script>
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="/js/bootstrap.js"></script>
+
+<script src="/js/util.js"></script>
+
+<title>今日自驾</title>
+
+<style type="text/css">
+a:hover {text-decoration: none}
+.container {
+	width: 37%;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.title {
+	margin-top: 100px;
+	margin-bottom: 30px;  
+}
+
+.content {
+	margin-bottom: 50px; 
+}
+
+</style>
+
+<script type="text/javascript" >
+
+function getArticle(data) {
+	err = data['error']
+	if (err['error_id'] != 0)
+		return null
+		
+	return data['response_data']
+}
+
+function createTitle(data) {
+	var article = $('<div class="row">')
+	var detail = col(12)
+	var title = $('<div class="row">')
+	var info = $('<div class="row">')
+
+	console.log(data)
+	title.append(col(12, $('<h3>').text(data['title'])))
+	detail.append(title)
+	
+	info.append(col(2, link(data['src_link'], data['source'])))
+	info.append(col(3, data['publish_time']))
+	info.append(col(2, data['view_count'] + '查看'))
+	info.append(col(2, data['thumb_count'] + '赞'))
+	info.append(col(2, data['comment_count'] + '评论'))
+	detail.append(info)
+	
+	article.append(detail)	
+	
+	return article	
+}
+
+$(function(){
+	var url = window.location.href
+	var aid = url.substring(url.lastIndexOf("=") + 1, url.length)
+	
+	$.getJSON(host + "/1/article/get?article_id=" + aid, function(data){
+		article = getArticle(data)
+		if (article == null) return
+		
+		$(".title").append(createTitle(article))
+		
+		var contents = $('<div classs="row">')		
+		
+		$.each(article['content'], function(i, segment) {
+			var p = $('<p>')			
+			if (segment['seg_type'] == 'image') {
+				p.append($('<img>').attr('src', segment['image_orig']))
+			} else {
+				p.append(segment['seg_content'])			
+			}
+			contents.append(p)
+		})
+		
+		$('.content').append(panel(contents))
+	})
+})
+
+</script>
+
+</head>
+<body>
+
+<div class="container title">
+
+</div>
+<div class="container content">
+</div>
+
+</body>
+</html>

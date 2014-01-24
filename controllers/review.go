@@ -116,7 +116,10 @@ func findMentions(review string) []string {
 func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form newReviewForm) {
 	var review models.Review
 
-	userid := redis.OnlineUser(form.AccessToken)
+	conn := redis.Conn()
+	defer conn.Close()
+
+	userid := redis.OnlineUser(conn, form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -145,7 +148,7 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 
 	user := models.User{Userid: userid}
 	user.RateArticle(form.ArticleId, ReviewRate, false)
-	redis.LogArticleReview(userid, form.ArticleId)
+	redis.LogArticleReview(conn, userid, form.ArticleId)
 
 	for _, mention := range findMentions(review.Content) {
 		nickname := strings.TrimLeft(mention, "@")
@@ -164,7 +167,7 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 		event.Message = nickname + "在评论中提到了你！"
 
 		if err := event.Save(); err == errors.NoError {
-			redis.LogUserMessages(event.Owner, event.Json())
+			redis.LogUserMessages(conn, event.Owner, event.Json())
 		}
 	}
 }
@@ -187,7 +190,10 @@ func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redi
 	var review models.Review
 	var user models.User
 
-	userid := redis.OnlineUser(form.AccessToken)
+	conn := redis.Conn()
+	defer conn.Close()
+
+	userid := redis.OnlineUser(conn, form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -227,14 +233,14 @@ func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redi
 	//event.Read = false
 	event.Message = user.Nickname + "赞了你的评论!"
 	if err := event.Save(); err == errors.NoError {
-		redis.LogUserMessages(event.Owner, event.Json())
+		redis.LogUserMessages(conn, event.Owner, event.Json())
 	}
 }
 
 func checkReviewThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form reviewThumbForm) {
 	var review models.Review
 
-	userid := redis.OnlineUser(form.AccessToken)
+	userid := redis.OnlineUser(nil, form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return

@@ -53,6 +53,7 @@ type articleJsonStruct struct {
 	Source  string          `json:"source"`
 	Url     string          `json:"src_link"`
 	PubTime string          `json:"publish_time"`
+	Views   int             `json:"view_count"`
 	Thumbs  int             `json:"thumb_count"`
 	Reviews int             `json:"comment_count"`
 	Image   string          `json:"first_image"`
@@ -77,27 +78,33 @@ func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *
 		return
 	}
 
+	conn := redis.Conn()
+	defer conn.Close()
+
 	var reads []bool
 	ids := make([]string, len(articles))
 	for i, _ := range articles {
 		ids[i] = articles[i].Id.Hex()
 	}
 
-	userid := redis.OnlineUser(form.AccessToken)
-	if reads = redis.ArticleView(userid, ids...); reads == nil {
+	userid := redis.OnlineUser(conn, form.AccessToken)
+	if reads = redis.ArticleView(conn, userid, ids...); reads == nil {
 		reads = make([]bool, len(articles))
 	}
 
 	jsonStructs := make([]articleJsonStruct, len(articles))
 	for i, _ := range articles {
+		view, thumb, review := redis.ArticleCount(conn, ids[i])
+
 		jsonStructs[i].Id = ids[i]
 		jsonStructs[i].Title = articles[i].Title
 		jsonStructs[i].Source = articleSource(articles[i].Source)
 		jsonStructs[i].Url = articles[i].Url
 		jsonStructs[i].PubTime = articles[i].PubTime.Format(TimeFormat)
-		jsonStructs[i].Thumbs = redis.ArticleThumbCount(articles[i].Id.Hex())
+		jsonStructs[i].Views = int(view)
+		jsonStructs[i].Thumbs = int(thumb)
+		jsonStructs[i].Reviews = int(review)
 		jsonStructs[i].Image = imageUrl(articles[i].Image, ImageThumbnail)
-		jsonStructs[i].Reviews = redis.ArticleReviewCount(articles[i].Id.Hex())
 		jsonStructs[i].Read = reads[i]
 	}
 
@@ -121,7 +128,10 @@ type articleInfoForm struct {
 }
 
 func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleInfoForm) {
-	userid := redis.OnlineUser(form.AccessToken)
+	conn := redis.Conn()
+	defer conn.Close()
+
+	userid := redis.OnlineUser(conn, form.AccessToken)
 	/*
 		if len(userid) == 0 {
 			writeResponse(request.RequestURI, resp, nil, errors.AccessError)
@@ -132,13 +142,13 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 	if len(userid) > 0 {
 		user := models.User{Userid: userid}
 		user.RateArticle(form.Id, AccessRate, false)
-		redis.LogArticleView(form.Id, userid)
+		redis.LogArticleView(conn, form.Id, userid)
 	}
 
 	article := models.Article{}
 	jsonStruct := &articleJsonStruct{}
 
-	data := redis.GetArticleCache(form.Id)
+	data := redis.GetArticleCache(conn, form.Id)
 	if len(data) > 0 {
 		writeRawResponse(resp, data)
 		return
@@ -152,13 +162,16 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 		return
 	}
 
+	view, thumb, review := redis.ArticleCount(conn, article.Id.Hex())
+
 	jsonStruct.Id = article.Id.Hex()
 	jsonStruct.Title = article.Title
 	jsonStruct.Source = articleSource(article.Source)
 	jsonStruct.Url = article.Url
 	jsonStruct.PubTime = article.PubTime.Format(TimeFormat)
-	jsonStruct.Reviews = redis.ArticleReviewCount(form.Id)
-	jsonStruct.Thumbs = redis.ArticleThumbCount(form.Id)
+	jsonStruct.Views = int(view)
+	jsonStruct.Reviews = int(review)
+	jsonStruct.Thumbs = int(thumb)
 
 	contents := make([]contentObject, len(article.Content))
 
@@ -183,7 +196,7 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 	}
 	jsonStruct.Content = contents
 	raw := writeResponse(request.RequestURI, resp, jsonStruct, errors.NoError)
-	redis.LogArticleCache(form.Id, raw)
+	redis.LogArticleCache(conn, form.Id, raw)
 }
 
 type articleThumbForm struct {
@@ -200,7 +213,10 @@ func (form *articleThumbForm) Validate(e *binding.Errors, req *http.Request) {
 }
 
 func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleThumbForm) {
-	userid := redis.OnlineUser(form.AccessToken)
+	conn := redis.Conn()
+	defer conn.Close()
+
+	userid := redis.OnlineUser(conn, form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -217,13 +233,16 @@ func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, red
 		user.RateArticle(form.ArticleId, ThumbRateMask, true)
 	}
 
-	redis.LogArticleThumb(userid, form.ArticleId, form.Status)
+	redis.LogArticleThumb(conn, userid, form.ArticleId, form.Status)
 
 	writeResponse(request.RequestURI, resp, nil, errors.NoError)
 }
 
 func checkArticleThumbHandler(request *http.Request, resp http.ResponseWriter, form articleThumbForm, redis *RedisLogger) {
-	userid := redis.OnlineUser(form.AccessToken)
+	conn := redis.Conn()
+	defer conn.Close()
+
+	userid := redis.OnlineUser(conn, form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -237,7 +256,7 @@ func checkArticleThumbHandler(request *http.Request, resp http.ResponseWriter, f
 		}
 	*/
 
-	respData := map[string]bool{"is_thumbed": redis.ArticleThumbed(userid, form.ArticleId)}
+	respData := map[string]bool{"is_thumbed": redis.ArticleThumbed(conn, userid, form.ArticleId)}
 	writeResponse(request.RequestURI, resp, respData, errors.NoError)
 }
 
@@ -277,7 +296,7 @@ func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form
 }
 */
 func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form relatedArticleForm, redis *RedisLogger) {
-	userid := redis.OnlineUser(form.AccessToken)
+	userid := redis.OnlineUser(nil, form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
 		return
@@ -325,7 +344,7 @@ func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form
 		jsonStructs[i].Id = articles[i].Id.Hex()
 		jsonStructs[i].Title = articles[i].Title
 		//jsonStructs[i].Source = articles[i].Source
-		//jsonStructs[i].Url = articles[i].Url
+		jsonStructs[i].Url = articles[i].Url
 		//jsonStructs[i].PubTime = articles[i].PubTime.Format(TimeFormat)
 		//jsonStructs[i].Image = imageUrl(articles[i].Image, ImageThumbnail)
 		//jsonStructs[i].Thumbs = redis.ArticleThumbCount(articles[i].Id.Hex())

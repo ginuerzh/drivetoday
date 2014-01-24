@@ -16,6 +16,7 @@ const (
 	redisStatPvPrefix          = "drivetoday:stat:pv:"             // sorted set per day
 	redisStatRegisterPrefix    = "drivetoday:stat:registers:"      // set per day
 	redisStatArticleViewPrefix = "drivetoday:stat:articles:view:"  // sorted set per day
+	redisStatArticleView       = "drivetoday:stat:articles:view"   // sorted set
 	redisStatArticleReview     = "drivetoday:stat:articles:review" // sorted set
 	redisStatArticleThumb      = "drivetoday:stat:articles:thumb"  // sorted set
 
@@ -85,24 +86,32 @@ func NewRedisLogger() *RedisLogger {
 	return &RedisLogger{pool: redisPool()}
 }
 
+func (logger *RedisLogger) Conn() redis.Conn {
+	return logger.pool.Get()
+}
+
 // log register users per day
-func (logger *RedisLogger) LogRegister(userid string) {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) LogRegister(conn redis.Conn, userid string) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 	conn.Do("SADD", redisStatRegisterPrefix+dateString(time.Now()), userid)
 }
 
-func (logger *RedisLogger) RegisterCount(days int) []int64 {
-	return logger.setsCount(redisStatRegisterPrefix, days)
+func (logger *RedisLogger) RegisterCount(conn redis.Conn, days int) []int64 {
+	return logger.setsCount(conn, redisStatRegisterPrefix, days)
 }
 
-func (logger *RedisLogger) OnlineUser(accessToken string) string {
+func (logger *RedisLogger) OnlineUser(conn redis.Conn, accessToken string) string {
 	if len(accessToken) == 0 {
 		return ""
 	}
 
-	conn := logger.pool.Get()
-	defer conn.Close()
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	var userid string
 
@@ -112,17 +121,19 @@ func (logger *RedisLogger) OnlineUser(accessToken string) string {
 		userid, _ = redis.String(conn.Do("GET", redisUserOnlineUserPrefix+accessToken))
 	}
 
-	logger.LogOnlineUser(accessToken, userid)
+	logger.LogOnlineUser(conn, accessToken, userid)
 
 	return userid
 }
 
-func (logger *RedisLogger) LogOnlineUser(accessToken, userid string) {
+func (logger *RedisLogger) LogOnlineUser(conn redis.Conn, accessToken, userid string) {
 	if len(accessToken) == 0 || len(userid) == 0 {
 		return
 	}
-	conn := logger.pool.Get()
-	defer conn.Close()
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	conn.Send("MULTI")
 	if !strings.HasPrefix(accessToken, GuestUserPrefix) {
@@ -136,22 +147,26 @@ func (logger *RedisLogger) LogOnlineUser(accessToken, userid string) {
 	conn.Do("EXEC")
 }
 
-func (logger *RedisLogger) DelOnlineUser(accessToken string) {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) DelOnlineUser(conn redis.Conn, accessToken string) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	conn.Send("DEL", redisUserOnlineUserPrefix+accessToken)
 }
 
-func (logger *RedisLogger) Onlines() int {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) Onlines(conn redis.Conn) int {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	count, _ := redis.Int(conn.Do("SCARD", redisUserOnlinesPrefix+onlineTimeString()))
 	return count
 }
 
-func (logger *RedisLogger) setsCount(key string, days int) []int64 {
+func (logger *RedisLogger) setsCount(conn redis.Conn, key string, days int) []int64 {
 	if days <= 0 {
 		days = 1
 	}
@@ -159,8 +174,10 @@ func (logger *RedisLogger) setsCount(key string, days int) []int64 {
 	t := time.Now()
 	d, _ := time.ParseDuration("-24h")
 
-	conn := logger.pool.Get()
-	defer conn.Close()
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	conn.Send("MULTI")
 	conn.Send("SCARD", key+dateString(t))
@@ -196,9 +213,11 @@ func (logger *RedisLogger) LogUserArticle(userid, article string, rate int) {
 	}
 }
 */
-func (logger *RedisLogger) UserArticleRate(userid string, articles ...string) []int {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) UserArticleRate(conn redis.Conn, userid string, articles ...string) []int {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	rates := make([]int, len(articles))
 	conn.Send("MULTI")
@@ -214,17 +233,22 @@ func (logger *RedisLogger) UserArticleRate(userid string, articles ...string) []
 	return rates
 }
 
-func (logger *RedisLogger) LogArticleCache(articleId string, article []byte) {
+func (logger *RedisLogger) LogArticleCache(conn redis.Conn, articleId string, article []byte) {
 	d := time.Minute * 5
-	conn := logger.pool.Get()
-	defer conn.Close()
+
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	conn.Do("SETEX", redisArticleCachePrefix+articleId, int(d.Seconds()), article)
 }
 
-func (logger *RedisLogger) GetArticleCache(articleId string) []byte {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) GetArticleCache(conn redis.Conn, articleId string) []byte {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	s, err := redis.Bytes(conn.Do("GET", redisArticleCachePrefix+articleId))
 	if err != nil {
@@ -233,16 +257,21 @@ func (logger *RedisLogger) GetArticleCache(articleId string) []byte {
 	return s
 }
 
-func (logger *RedisLogger) LogUserMessages(userid string, msgs ...string) {
+func (logger *RedisLogger) LogUserMessages(conn redis.Conn, userid string, msgs ...string) {
 	args := redis.Args{}.Add(redisUserMessagePrefix + userid).AddFlat(msgs)
-	conn := logger.pool.Get()
-	defer conn.Close()
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 	conn.Do("LPUSH", args...)
 }
 
-func (logger *RedisLogger) MessageCount(userid string) int {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) MessageCount(conn redis.Conn, userid string) int {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
+
 	count, err := redis.Int(conn.Do("LLEN", redisUserMessagePrefix+userid))
 	if err != nil {
 		log.Println(err)
@@ -250,27 +279,35 @@ func (logger *RedisLogger) MessageCount(userid string) int {
 	return count
 }
 
-func (logger *RedisLogger) ClearMessages(userid string) {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) ClearMessages(conn redis.Conn, userid string) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
+
 	conn.Do("DEL", redisUserMessagePrefix+userid)
 }
 
 // log unique visitors per day
-func (logger *RedisLogger) LogVisitor(ip string) {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) LogVisitor(conn redis.Conn, ip string) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
+
 	conn.Do("SADD", redisStatVisitorPrefix+dateString(time.Now()), ip)
 }
 
-func (logger *RedisLogger) VisitorsCount(days int) []int64 {
-	return logger.setsCount(redisStatVisitorPrefix, days)
+func (logger *RedisLogger) VisitorsCount(conn redis.Conn, days int) []int64 {
+	return logger.setsCount(conn, redisStatVisitorPrefix, days)
 }
 
 // log pv per day
-func (logger *RedisLogger) LogPV(path string) {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) LogPV(conn redis.Conn, path string) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	conn.Do("ZINCRBY", redisStatPvPrefix+dateString(time.Now()), 1, path)
 }
@@ -280,7 +317,7 @@ type KV struct {
 	V int64  `json:"count"`
 }
 
-func (logger *RedisLogger) PVs(dates ...string) map[string][]KV {
+func (logger *RedisLogger) PVs(conn redis.Conn, dates ...string) map[string][]KV {
 	if len(dates) == 0 {
 		dates = []string{dateString(time.Now())}
 	}
@@ -288,19 +325,21 @@ func (logger *RedisLogger) PVs(dates ...string) map[string][]KV {
 	pvs := make(map[string][]KV, len(dates))
 
 	for _, date := range dates {
-		pvs[date] = logger.PV(date)
+		pvs[date] = logger.PV(conn, date)
 	}
 
 	return pvs
 }
 
-func (logger *RedisLogger) PV(date string) []KV {
+func (logger *RedisLogger) PV(conn redis.Conn, date string) []KV {
 	if len(date) == 0 {
 		return nil
 	}
 
-	conn := logger.pool.Get()
-	defer conn.Close()
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	count, _ := redis.Int(conn.Do("ZCARD", redisStatPvPrefix+date))
 	values, err := redis.Values(conn.Do("ZREVRANGE", redisStatPvPrefix+date, 0, count, "WITHSCORES"))
@@ -319,20 +358,11 @@ func (logger *RedisLogger) PV(date string) []KV {
 	return pvs
 }
 
-func (logger *RedisLogger) LogArticleView(articleId string, userid string) {
-	conn := logger.pool.Get()
-	defer conn.Close()
-	//log.Println("log article view", articleId, userid)
-	conn.Send("MULTI")
-	conn.Send("ZINCRBY", redisStatArticleViewPrefix+dateString(time.Now()), 1, articleId)
-	conn.Send("SADD", redisArticleViewPrefix+articleId, userid)
-	conn.Send("ZADD", redisUserArticlePrefix+userid, AccessRate, articleId)
-	conn.Do("EXEC")
-}
-
-func (logger *RedisLogger) RelatedArticles(article string, max int) []string {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) RelatedArticles(conn redis.Conn, article string, max int) []string {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	members, err := redis.Strings(conn.Do("SMEMBERS", redisArticleViewPrefix+article))
 	if err != nil {
@@ -378,9 +408,11 @@ func (logger *RedisLogger) RelatedArticles(article string, max int) []string {
 	return articles
 }
 
-func (logger *RedisLogger) ViewedArticles(userid string) []string {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) ViewedArticles(conn redis.Conn, userid string) []string {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	count, _ := redis.Int(conn.Do("ZCARD", redisUserArticlePrefix+userid))
 	values, err := redis.Strings(conn.Do("ZRANGE", redisUserArticlePrefix+userid, 0, count))
@@ -393,13 +425,64 @@ func (logger *RedisLogger) ViewedArticles(userid string) []string {
 	return values
 }
 
-func (logger *RedisLogger) ArticleView(userid string, articles ...string) []bool {
+func (logger *RedisLogger) ArticleCount(conn redis.Conn, articleId string) (view, thumb, review int64) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
+
+	conn.Send("MULTI")
+	conn.Send("ZSCORE", redisStatArticleView, articleId)
+	//conn.Send(conn.Do("SCARD", redisArticleViewPrefix+articleId))
+	conn.Send("ZSCORE", redisStatArticleThumb, articleId)
+	conn.Send("ZSCORE", redisStatArticleReview, articleId)
+	values, err := redis.Values(conn.Do("EXEC"))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	var counts []struct {
+		Count int64
+	}
+
+	if err := redis.ScanSlice(values, &counts); err != nil {
+		log.Println(err)
+		return
+	}
+
+	view = counts[0].Count
+	thumb = counts[1].Count
+	review = counts[2].Count
+
+	//	log.Println(view, thumb, review)
+
+	return
+}
+
+func (logger *RedisLogger) LogArticleView(conn redis.Conn, articleId string, userid string) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
+	//log.Println("log article view", articleId, userid)
+	conn.Send("MULTI")
+	conn.Send("ZINCRBY", redisStatArticleViewPrefix+dateString(time.Now()), 1, articleId)
+	conn.Send("ZINCRBY", redisStatArticleView, 1, articleId)
+	conn.Send("SADD", redisArticleViewPrefix+articleId, userid)
+	conn.Send("ZADD", redisUserArticlePrefix+userid, AccessRate, articleId)
+	conn.Do("EXEC")
+}
+
+func (logger *RedisLogger) ArticleView(conn redis.Conn, userid string, articles ...string) []bool {
 	if len(userid) == 0 {
 		return nil
 	}
 
-	conn := logger.pool.Get()
-	defer conn.Close()
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	conn.Send("MULTI")
 	for _, article := range articles {
@@ -420,7 +503,7 @@ func (logger *RedisLogger) ArticleView(userid string, articles ...string) []bool
 	return views
 }
 
-func (logger *RedisLogger) ArticleTopView(days, max int) []string {
+func (logger *RedisLogger) ArticleTopView(conn redis.Conn, days, max int) []string {
 	if days <= 0 {
 		days = 1
 	}
@@ -440,8 +523,10 @@ func (logger *RedisLogger) ArticleTopView(days, max int) []string {
 
 	args := redis.Args{}.Add(redisStatArticleViewPrefix + "out").Add(days).AddFlat(keys)
 	//log.Println(args)
-	conn := logger.pool.Get()
-	defer conn.Close()
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	conn.Send("MULTI")
 	conn.Send("ZUNIONSTORE", args...)
@@ -468,9 +553,11 @@ func (logger *RedisLogger) ArticleTopView(days, max int) []string {
 	return articles
 }
 
-func (logger *RedisLogger) LogArticleReview(userid, articleId string) {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) LogArticleReview(conn redis.Conn, userid, articleId string) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	conn.Send("MULTI")
 	conn.Send("ZINCRBY", redisStatArticleReview, 1, articleId)
@@ -479,20 +566,24 @@ func (logger *RedisLogger) LogArticleReview(userid, articleId string) {
 	conn.Do("EXEC")
 }
 
-func (logger *RedisLogger) ArticleReviewCount(articleId string) (count int) {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) ArticleReviewCount(conn redis.Conn, articleId string) (count int) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	count, _ = redis.Int(conn.Do("ZSCORE", redisStatArticleReview, articleId))
 	return
 }
 
-func (logger *RedisLogger) ArticleTopReview(max int) []string {
+func (logger *RedisLogger) ArticleTopReview(conn redis.Conn, max int) []string {
 	if max <= 0 {
 		max = 1
 	}
-	conn := logger.pool.Get()
-	defer conn.Close()
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	articles, err := redis.Strings(conn.Do("ZREVRANGE", redisStatArticleReview, 0, max))
 	if err != nil {
@@ -503,14 +594,16 @@ func (logger *RedisLogger) ArticleTopReview(max int) []string {
 	return articles
 }
 
-func (logger *RedisLogger) LogArticleThumb(userid, articleId string, thumb bool) {
+func (logger *RedisLogger) LogArticleThumb(conn redis.Conn, userid, articleId string, thumb bool) {
 	inc := 1
 	if !thumb {
 		inc = -1
 	}
-	conn := logger.pool.Get()
-	defer conn.Close()
-	log.Println("log article thumb", userid, articleId, thumb)
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
+	//log.Println("log article thumb", userid, articleId, thumb)
 	conn.Send("MULTI")
 	conn.Send("ZINCRBY", redisStatArticleThumb, inc, articleId)
 	if thumb {
@@ -522,28 +615,34 @@ func (logger *RedisLogger) LogArticleThumb(userid, articleId string, thumb bool)
 	conn.Do("EXEC")
 }
 
-func (logger *RedisLogger) ArticleThumbed(userid, articleId string) (b bool) {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) ArticleThumbed(conn redis.Conn, userid, articleId string) (b bool) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	b, _ = redis.Bool(conn.Do("SISMEMBER", redisArticleThumbPrefix+articleId, userid))
 	return
 }
 
-func (logger *RedisLogger) ArticleThumbCount(articleId string) (count int) {
-	conn := logger.pool.Get()
-	defer conn.Close()
+func (logger *RedisLogger) ArticleThumbCount(conn redis.Conn, articleId string) (count int) {
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	count, _ = redis.Int(conn.Do("SCARD", redisArticleThumbPrefix+articleId))
 	return
 }
 
-func (logger *RedisLogger) ArticleTopThumb(max int) []string {
+func (logger *RedisLogger) ArticleTopThumb(conn redis.Conn, max int) []string {
 	if max <= 0 {
 		max = 1
 	}
-	conn := logger.pool.Get()
-	defer conn.Close()
+	if conn == nil {
+		conn = logger.pool.Get()
+		defer conn.Close()
+	}
 
 	articles, err := redis.Strings(conn.Do("ZREVRANGE", redisStatArticleThumb, 0, max))
 	if err != nil {
@@ -554,11 +653,14 @@ func (logger *RedisLogger) ArticleTopThumb(max int) []string {
 	return articles
 }
 
-func LogRequestHandler(request *http.Request, redisLogger *RedisLogger) {
+func LogRequestHandler(request *http.Request, redis *RedisLogger) {
 	s := strings.Split(request.RemoteAddr, ":")
 
+	conn := redis.Conn()
+	defer conn.Close()
+
 	if len(s) > 0 {
-		redisLogger.LogVisitor(s[0])
+		redis.LogVisitor(conn, s[0])
 	}
-	redisLogger.LogPV(request.URL.Path)
+	redis.LogPV(conn, request.URL.Path)
 }
