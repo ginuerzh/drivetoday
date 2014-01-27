@@ -7,3 +7,16 @@ a:hover {text-decoration: none}
 	margin-top: 100px;
 	margin-bottom: 100px;
 }
+
+.stat {
+	color: gray;	
+}
+
+
+.offline {
+	color: lightgray;
+}
+
+.online {
+	color: green;
+}

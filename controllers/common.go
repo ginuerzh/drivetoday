@@ -153,15 +153,26 @@ func imageUrl(fid string, size ImageSize) string {
 		return url
 	}
 
+	baseUrl := "http://" + url + "/" + s[0] + "/" + s[1]
+
 	if size == ImageOriginal {
 		if len(s) >= 3 {
-			return "http://" + url + "/" + s[0] + "/" + s[1] + "/" + s[2] + ".jpg"
+			return baseUrl + "/" + s[2] + ".jpg"
 		}
-		return "http://" + url + "/" + s[0] + "/" + s[1] + ".jpg"
+		return baseUrl + ".jpg"
 	}
 
-	if len(s) >= 4 {
-		return "http://" + url + "/" + s[0] + "/" + s[1] + "_" + strconv.Itoa(int(size)) + "/" + s[3] + ".jpg"
+	if size == ImageBig {
+		if len(s) >= 4 {
+			return baseUrl + "_" + strconv.Itoa(int(size)) + "/" + s[3] + ".jpg"
+		}
 	}
-	return "http://" + url + "/" + s[0] + "/" + s[1] + "_" + strconv.Itoa(int(size)) + ".jpg"
+
+	if size == ImageThumbnail {
+		if len(s) >= 5 {
+			return baseUrl + "_" + strconv.Itoa(int(size)) + "/" + s[4] + ".jpg"
+		}
+	}
+
+	return baseUrl + "_" + strconv.Itoa(int(size)) + ".jpg"
 }

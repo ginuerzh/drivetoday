@@ -17,22 +17,13 @@
 
 <style type="text/css">
 
-.profile {
-	width: 50px;
-	height: 50px;
-	margin-top: 4px;
+.user-profile {
+	width: 250%;
+	height: auto;
 }
 
-.offline {
-	color: lightgray;
-}
-
-.online {
-	color: green;
-}
-
-.stat {
-	float: right;
+.reg-time {
+	font-size: smaller;
 }
 
 </style>
@@ -44,36 +35,8 @@ function getUsers(data) {
  	else 				return resp['users']
 }
 
-function statusIcon(online) {
-	if (online)
-		return $('<span class="glyphicon glyphicon-user online">')
-	else
-		return $('<span class="glyphicon glyphicon-user offline">')
-}
-
-function createUser(data) {
-	var user = $('<div class="row">')
-	var profile = $('<img class="profile" src="/images/1.gif">')
-	if (data['profile_image'].length > 0) profile.attr('src', data['profile_image'])	
-	
-	var nickname = $('<span>').append(statusIcon(data['online'])).append(' ' + data['nikename'])
-	
-	var regtime = $('<span class="reg-time">').text(data['register_time'])
-	var location = $('<span>').text(data['location'])
-	var about = $('<span>').text(data['about'])
-	
-	var view = $('<span class="stat">').append(data['view_count'] + ' ').append(glyphicon('eye-open'))
-	var thumb = $('<span class="stat">').append(data['thumb_count'] + ' ').append(glyphicon('thumbs-up'))
-	var review = $('<span class="stat">').append(data['review_count'] + ' ').append(glyphicon('comment'))
-	
-	user.append(col(2, profile))
-	user.append(col(6, link(host+'/user.html?uid=' + data['userid'], nickname)).
-			append('<br>', regtime).
-			append('<br>', location).
-			append('<br>', about))
-	user.append(col(4).append(view, $('<br>'), thumb, $('<br>'), review))
-	
-	return col(4, panel(user))
+function glyphicon(name) {
+	return $('<span class="glyphicon glyphicon-' + name + '">')
 }
 
 $(function(){
@@ -95,15 +58,15 @@ $(function(){
 		$.each(users, function(i, user) {
 			if (i % 3 == 0) {
 				r = row()
-				$('.container').append(r)
+				$('.right-content').append(r)
 			}
 			var u = createUser(user)
 			//console.log('append', i, u)
 			
-			r.append(u)
+			r.append(col(4, panel(u)))
 		})
 		
-		$(".container").append(pagination(page, pages, host + '/users.html?p='))	
+		$(".right-content").append(pagination(page, pages, host + '/users.html?p='))	
 	})
 })
 
@@ -111,6 +74,17 @@ $(function(){
 </head>
 <body>
 	<div class="container">
+		<div class="col-md-2 left-nav">
+			<div class="row">
+				<div class="col-md-12">
+					<div class="list-group">
+					  <a href="/users.html" class="list-group-item active">用户列表</a>
+					  <a href="/articles.html" class="list-group-item">文章列表</a>
+					</div>
+				</div>	
+			</div>		
+		</div>
+		<div class="col-md-10 right-content"></div>
 	</div>
 </body>
 </html>

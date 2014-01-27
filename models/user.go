@@ -48,6 +48,14 @@ func (this *User) Exists() (bool, int) {
 	return count > 0, errors.NoError
 }
 
+func FindUsers(ids []string) (users []User, errId int) {
+	if err := search(userCollection, bson.M{"userid": bson.M{"$in": ids}}, nil, 0, 0, nil, nil, &users); err != nil {
+		errId = errors.DbError
+	}
+
+	return
+}
+
 func (this *User) findOne(query interface{}) (bool, int) {
 	var users []User
 

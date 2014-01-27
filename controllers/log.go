@@ -22,9 +22,9 @@ const (
 	redisStatArticleThumb      = "drivetoday:stat:articles:thumb"  // sorted set
 
 	redisArticleCachePrefix   = "drivetoday:article:cache:"   // string per article
-	redisArticleViewPrefix    = "drivetoday:article:view:"    // list per article
-	redisArticleThumbPrefix   = "drivetoday:article:thumb:"   // list per article
-	redisArticleReviewPrefix  = "drivetoday:article:review:"  // list per article
+	redisArticleViewPrefix    = "drivetoday:article:view:"    // set per article
+	redisArticleThumbPrefix   = "drivetoday:article:thumb:"   // set per article
+	redisArticleReviewPrefix  = "drivetoday:article:review:"  // set per article
 	redisArticleRelatedPrefix = "drivetoday:article:related:" // sorted set per article
 
 	redisUserMessagePrefix    = "drivetoday:user:msgs:"     // list per user
@@ -414,6 +414,17 @@ func (logger *RedisLogger) LogArticleView(articleId string, userid string) {
 	conn.Do("EXEC")
 }
 
+func (logger *RedisLogger) ArticleViewers(articleId string) []string {
+	if len(articleId) == 0 {
+		return nil
+	}
+
+	conn := logger.conn
+	viewers, _ := redis.Strings(conn.Do("SMEMBERS", redisArticleViewPrefix+articleId))
+
+	return viewers
+}
+
 func (logger *RedisLogger) ArticleView(userid string, articles ...string) []bool {
 	if len(userid) == 0 {
 		return nil
@@ -530,6 +541,17 @@ func (logger *RedisLogger) LogArticleThumb(userid, articleId string, thumb bool)
 		conn.Send("SREM", redisArticleThumbPrefix+articleId, userid)
 	}
 	conn.Do("EXEC")
+}
+
+func (logger *RedisLogger) ArticleThumbers(articleId string) []string {
+	if len(articleId) == 0 {
+		return nil
+	}
+
+	conn := logger.conn
+	thumbers, _ := redis.Strings(conn.Do("SMEMBERS", redisArticleThumbPrefix+articleId))
+
+	return thumbers
 }
 
 func (logger *RedisLogger) ArticleThumbed(userid, articleId string) (b bool) {

@@ -24,7 +24,9 @@ type Article struct {
 	PubTime    time.Time `bson:"pub_time"`
 	Content    []string
 	//Thumbs     []string `bson:",omitempty"`
-	Image string
+	Image   string
+	Random  int
+	Publish bool
 }
 
 func (this *Article) findOne(query interface{}) (bool, int) {
@@ -129,7 +131,7 @@ func GetArticles(articleIds ...string) (articles []Article, errId int) {
 }
 
 func GetBriefArticles(skip, limit int) (total int, articles []Article, errId int) {
-	err := search(articleColl, nil, bson.M{"content": false}, skip, limit, []string{"-pub_time"}, &total, &articles)
+	err := search(articleColl, bson.M{"publish": true}, bson.M{"content": false}, skip, limit, []string{"-pub_time"}, &total, &articles)
 	if err != nil {
 		log.Println(err)
 		return 0, nil, errors.DbError

@@ -23,6 +23,8 @@ const (
 	ArticleSetThumbV1Uri = "/1/article/thumb"
 	ArticleThumbedV1Uri  = "/1/article/is_thumbed"
 	ArticleRelatedV1Uri  = "/1/article/related_articles"
+	ArticleViewersV1Uri  = "/1/article/viewers/:id"
+	ArticleThumbsV1Uri   = "/1/article/thumbs/:id"
 
 	SlopeOneUrl = "http://localhost:8090/slopeone"
 )
@@ -34,6 +36,9 @@ func BindArticleApi(m *martini.ClassicMartini) {
 	m.Post(ArticleSetThumbV1Uri, binding.Json(articleThumbForm{}), ErrorHandler, articleSetThumbHandler)
 	m.Get(ArticleThumbedV1Uri, binding.Form(articleThumbForm{}), ErrorHandler, checkArticleThumbHandler)
 	m.Get(ArticleRelatedV1Uri, binding.Form(relatedArticleForm{}), ErrorHandler, relatedArticleHandler)
+
+	m.Get(ArticleViewersV1Uri, articleViewersHandler)
+	m.Get(ArticleThumbsV1Uri, articleThumbsHandler)
 }
 
 type articleListForm struct {
@@ -44,7 +49,8 @@ type articleListForm struct {
 type contentObject struct {
 	ContentType string `json:"seg_type"`
 	ContentText string `json:"seg_content"`
-	ImageUrl    string `json:"image_orig"`
+	ImageMid    string `json:"image_mid"`
+	ImageOrig   string `json:"image_orig"`
 }
 
 type articleJsonStruct struct {
@@ -179,8 +185,9 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 			strings.HasSuffix(text, "[fid]") {
 			fid := strings.TrimSuffix(strings.TrimPrefix(text, "[fid]"), "[fid]")
 			contents[i] = contentObject{ContentType: "image",
-				ContentText: imageUrl(fid, ImageBig),
-				ImageUrl:    imageUrl(fid, ImageOriginal),
+				ContentText: imageUrl(fid, ImageThumbnail),
+				ImageMid:    imageUrl(fid, ImageBig),
+				ImageOrig:   imageUrl(fid, ImageOriginal),
 			}
 		} else {
 			contents[i] = contentObject{ContentType: "text",
@@ -343,4 +350,60 @@ func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form
 	respData := make(map[string]interface{})
 	respData["related_articles"] = jsonStructs
 	writeResponse(request.RequestURI, resp, respData, e)
+}
+
+func articleViewersHandler(request *http.Request, resp http.ResponseWriter, params martini.Params, redis *RedisLogger) {
+	aid := params["id"]
+
+	viewers := redis.ArticleViewers(aid)
+
+	users, err := models.FindUsers(viewers)
+
+	jsonStructs := make([]userJsonStruct, len(users))
+	for i, _ := range users {
+		view, thumb, review := redis.UserArticleCount(users[i].Userid)
+
+		jsonStructs[i].Userid = users[i].Userid
+		jsonStructs[i].Nickname = users[i].Nickname
+		jsonStructs[i].Type = users[i].Role
+		jsonStructs[i].Profile = users[i].Profile
+		jsonStructs[i].Phone = users[i].Phone
+		jsonStructs[i].Location = users[i].Location
+		jsonStructs[i].About = users[i].About
+		jsonStructs[i].RegTime = users[i].RegTime.Format(TimeFormat)
+		jsonStructs[i].Views = view
+		jsonStructs[i].Thumbs = thumb
+		jsonStructs[i].Reviews = review
+		jsonStructs[i].Online = redis.IsOnline(users[i].Userid)
+	}
+
+	writeResponse(request.RequestURI, resp, jsonStructs, err)
+}
+
+func articleThumbsHandler(request *http.Request, resp http.ResponseWriter, params martini.Params, redis *RedisLogger) {
+	aid := params["id"]
+
+	viewers := redis.ArticleThumbers(aid)
+
+	users, err := models.FindUsers(viewers)
+
+	jsonStructs := make([]userJsonStruct, len(users))
+	for i, _ := range users {
+		view, thumb, review := redis.UserArticleCount(users[i].Userid)
+
+		jsonStructs[i].Userid = users[i].Userid
+		jsonStructs[i].Nickname = users[i].Nickname
+		jsonStructs[i].Type = users[i].Role
+		jsonStructs[i].Profile = users[i].Profile
+		jsonStructs[i].Phone = users[i].Phone
+		jsonStructs[i].Location = users[i].Location
+		jsonStructs[i].About = users[i].About
+		jsonStructs[i].RegTime = users[i].RegTime.Format(TimeFormat)
+		jsonStructs[i].Views = view
+		jsonStructs[i].Thumbs = thumb
+		jsonStructs[i].Reviews = review
+		jsonStructs[i].Online = redis.IsOnline(users[i].Userid)
+	}
+
+	writeResponse(request.RequestURI, resp, jsonStructs, err)
 }
