@@ -88,7 +88,7 @@ function createUser(data) {
 	
 	var nickname = $('<span>').append(statusIcon(data['online']), nick)
 	
-	var regtime = $('<span class="reg-time">').text(data['register_time'])
+	var regtime = $('<span class="reg-time">').text(data['register_time'].substring(2, 16))
 	var location = $('<span>').text(data['location'])
 	//var about = $('<span>').text(data['about'])
 	
@@ -100,11 +100,47 @@ function createUser(data) {
 	user.append(col(6, link(host+'/user.html?uid=' + data['userid'], nickname)).
 			append('<br>', regtime).
 			append('<br>', location))
-	user.append(col(4).append(view, $('<br>'), thumb, $('<br>'), review))
+	user.append(col(4).append(row(col(12, view)), row(col(12, thumb)), row(col(12, review))))
 	
 	return user
 }
 
+
+function createReview(data) {
+	var review = $('<div class="row">')
+	var profile = $('<img class="profile img-circle" src="/images/1.gif">')
+	var nickname = $('<span>')
+	if (data['review_author'].indexOf('guest:') == 0) {
+		nickname.text('匿名用户')
+	} else {
+		nickname.text(data['review_author'])
+		nickname = link(host+'/user.html?uid=' + data['review_author'], nickname)
+	}
+	var reviewtime = $('<span class="review-time">').text(data['time'].substring(2, 16))
+	
+	review.append(col(1, profile))
+	var userlink = link(host+'/user.html?uid=' + data['review_author'], nickname)
+	review.append(col(3, userlink).append('<br>', reviewtime))
+	review.append(col(6, data['message']))
+	
+	var thumb = $('<span class="stat thumb-count pull-right">').append(data['thumb_count'] + ' ', glyphicon('thumbs-up'))
+	review.append(col(2, thumb))
+	
+	$.getJSON(host + "/1/user/getInfo?userid=" + data['review_author'], function(data){
+		var userinfo = getResponse(data)
+		if (userinfo == null) return
+		
+		if (userinfo['profile_image'].length > 0) profile.attr('src', userinfo['profile_image'])
+
+		var nick = userinfo['nikename']
+		if (nick.indexOf('weibo_') == 0) {
+			nick = nick.substring(6)	
+		}
+		nickname.text(nick).prepend(statusIcon(userinfo['online']))
+	})
+	
+	return review
+}
 
 function getResponse(data) {
 	err = data['error']
@@ -112,4 +148,10 @@ function getResponse(data) {
 		return null
 		
 	return data['response_data']
+}
+
+function getReviews(data) {
+ 	var resp = getResponse(data)
+ 	if (resp == null) 	return null
+ 	else 				return resp['reviews']
 }

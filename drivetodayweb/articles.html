@@ -16,6 +16,18 @@
 <title>今日自驾</title>
 
 <style type="text/css">
+
+.profile {
+	width: 250%;
+	height: auto;
+}
+
+.user-profile {
+	width: 100%;
+	height: auto;
+}
+
+
 </style>
 
 <script type="text/javascript" >
@@ -39,9 +51,9 @@ function createArticle(data) {
 	info.append(col(2, link(data['src_link'], data['source'], true)))
 	info.append(col(3, data['publish_time']))
 	
-	var view = $('<span class="stat">').append(data['view_count'] + ' ').append(glyphicon('eye-open'))
-	var thumb = $('<span class="stat">').append(data['thumb_count'] + ' ').append(glyphicon('thumbs-up'))
-	var review = $('<span class="stat">').append(data['comment_count'] + ' ').append(glyphicon('comment'))	
+	var view = $('<span class="stat">').append($('<a href="#" class="view-modal-btn" data-toggle="modal" data-target="#viewModal">').attr('id', data['article_id']).append(data['view_count'] + ' ', glyphicon('eye-open')))
+	var thumb = $('<span class="stat">').append($('<a href="#" class="thumb-modal-btn" data-toggle="modal" data-target="#thumbModal">').attr('id', data['article_id']).append(data['thumb_count'] + ' ', glyphicon('thumbs-up')))
+	var review = $('<span class="stat">').append($('<a href="#" class="comment-modal-btn" data-toggle="modal" data-target="#commentModal">').attr('id', data['article_id']).append(data['comment_count'] + ' ', glyphicon('comment')))
 	
 	
 	info.append(col(2, view))
@@ -53,6 +65,44 @@ function createArticle(data) {
 	
 	return $('<div class="row">').append(col(12, panel(article)))
 }
+
+function loadViewers(aid) {
+	$.getJSON(host+"/1/article/viewers/" + aid, function(data){
+		var viewers = getResponse(data)
+		if (viewers == null) return 
+		
+		$('#view-modal-body').empty()
+		$.each(viewers, function(i, viewer) {
+			$('#view-modal-body').append(panel(createUser(viewer)))
+		})
+	})
+}
+
+function loadThumbs(aid) {
+	$.getJSON(host+"/1/article/thumbs/" + aid, function(data){
+		var thumbs = getResponse(data)
+		if (thumbs == null) return 
+		
+		$('#thumb-modal-body').empty()
+		$.each(thumbs, function(i, thumb) {
+			$('#thumb-modal-body').append(panel(createUser(thumb)))
+		})
+	})
+}
+
+function loadReviews(aid) {
+	//console.log(aid)
+	$.getJSON(host + "/1/review/list?page_number=-1&article_id=" + aid, function(data){
+		var reviews = getReviews(data)
+		if (reviews == null) return
+
+		$('#comment-modal-body').empty()
+		$.each(reviews, function(i, review) {
+			$('#comment-modal-body').append(panel(createReview(review)))
+		})
+	})
+}
+
 
 $(function(){
 	var url = window.location.href
@@ -75,24 +125,83 @@ $(function(){
 		})
 		
 		$(".right-content").append(pagination(page, pages, host + '/articles.html?p='))	
+		
+		$('.comment-modal-btn').click(function(){
+			aid = $(this).attr('id')
+			//console.log(aid)
+			loadReviews(aid)
+		})
+		
+		$('.thumb-modal-btn').click(function(){
+			aid = $(this).attr('id')
+			//console.log(aid)
+			loadThumbs(aid)
+		})
+		
+		$('.view-modal-btn').click(function(){
+			aid = $(this).attr('id')
+			//console.log(aid)
+			loadViewers(aid)
+		})
 	})
 })
 </script>
 
 </head>
 <body>
-	<div class="container">
-		<div class="col-md-2 left-nav">
-			<div class="row">
-				<div class="col-md-12">
-					<div class="list-group">
-					  <a href="/users.html" class="list-group-item">用户列表</a>
-					  <a href="/articles.html" class="list-group-item active">文章列表</a>
-					</div>
-				</div>	
-			</div>		
-		</div>
-		<div class="col-md-10 right-content"></div>
+<div class="container">
+	<div class="col-md-2 left-nav">
+		<div class="row">
+			<div class="col-md-12">
+				<div class="list-group">
+				  <a href="/users.html" class="list-group-item">用户列表</a>
+				  <a href="/articles.html" class="list-group-item active">文章列表</a>
+				</div>
+			</div>	
+		</div>		
 	</div>
+	<div class="col-md-10 right-content"></div>
+</div>
+	
+	
+<div class="modal fade" id="viewModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title" id="myModalLabel">浏览此文章的用户</h4>
+      </div>
+      <div class="modal-body" id="view-modal-body">
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<div class="modal fade" id="thumbModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title" id="myModalLabel">赞过此文章的用户</h4>
+      </div>
+      <div class="modal-body" id="thumb-modal-body">
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<div class="modal fade" id="commentModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title" id="myModalLabel">用户评论</h4>
+      </div>
+      <div class="modal-body" id="comment-modal-body">
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
 </body>
 </html>
