@@ -230,7 +230,7 @@ type userJsonStruct struct {
 	Online   bool   `json:"online"`
 }
 
-func userInfoHandler(request *http.Request, resp http.ResponseWriter, form getInfoForm) {
+func userInfoHandler(request *http.Request, resp http.ResponseWriter, form getInfoForm, redis *RedisLogger) {
 	var user models.User
 
 	if find, err := user.FindByUserId(form.Userid); !find {
@@ -250,6 +250,7 @@ func userInfoHandler(request *http.Request, resp http.ResponseWriter, form getIn
 	respData["location"] = user.Location
 	respData["profile_image"] = user.Profile
 	respData["register_time"] = user.RegTime.Format(TimeFormat)
+	respData["online"] = redis.IsOnline(user.Userid)
 
 	writeResponse(request.RequestURI, resp, respData, errors.NoError)
 }
