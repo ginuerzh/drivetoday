@@ -117,7 +117,7 @@ func findMentions(review string) []string {
 	return mentions
 }
 
-func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form newReviewForm) {
+func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form newReviewForm) {
 	var review models.Review
 
 	userid := redis.OnlineUser(form.AccessToken)
@@ -148,7 +148,7 @@ func newReviewHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 	writeResponse(request.RequestURI, resp, jsonStruct, err)
 
 	user := models.User{Userid: userid}
-	user.RateArticle(form.ArticleId, ReviewRate, false)
+	user.RateArticle(form.ArticleId, models.ReviewRate, false)
 	redis.LogArticleReview(userid, form.ArticleId)
 
 	for _, mention := range findMentions(review.Content) {
@@ -187,7 +187,7 @@ func (form *reviewThumbForm) Validate(e *binding.Errors, req *http.Request) {
 	}
 }
 
-func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form reviewThumbForm) {
+func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form reviewThumbForm) {
 	var review models.Review
 	var user models.User
 
@@ -235,7 +235,7 @@ func reviewSetThumbHandler(request *http.Request, resp http.ResponseWriter, redi
 	}
 }
 
-func checkReviewThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form reviewThumbForm) {
+func checkReviewThumbHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form reviewThumbForm) {
 	var review models.Review
 
 	userid := redis.OnlineUser(form.AccessToken)

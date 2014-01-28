@@ -36,21 +36,9 @@ const (
 )
 
 const (
-	GuestUserPrefix = "guest:"
-
 	UserTypeEmail = "usrpass"
 	UserTypeWeibo = "weibo"
 	UserTypeGuest = "guest"
-)
-
-const (
-	AccessRate = 1 << iota // 001
-	ThumbRate              // 010
-	ReviewRate             // 100
-
-	AccessRateMask = 6 // 110
-	ThumbRateMask  = 5 // 101
-	ReviewRateMask = 3 // 011
 )
 
 type response struct {

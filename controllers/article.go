@@ -77,7 +77,7 @@ func articleSource(s string) string {
 	return source
 }
 
-func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleListForm) {
+func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form articleListForm) {
 	total, articles, err := models.GetBriefArticles(DefaultPageSize*form.PageNumber, DefaultPageSize)
 	if err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)
@@ -130,7 +130,7 @@ type articleInfoForm struct {
 	AccessToken string `form:"access_token"`
 }
 
-func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleInfoForm) {
+func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form articleInfoForm) {
 	userid := redis.OnlineUser(form.AccessToken)
 	/*
 		if len(userid) == 0 {
@@ -141,7 +141,7 @@ func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *
 
 	if len(userid) > 0 {
 		user := models.User{Userid: userid}
-		user.RateArticle(form.Id, AccessRate, false)
+		user.RateArticle(form.Id, models.AccessRate, false)
 		redis.LogArticleView(form.Id, userid)
 	}
 
@@ -213,7 +213,7 @@ func (form *articleThumbForm) Validate(e *binding.Errors, req *http.Request) {
 	}
 }
 
-func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form articleThumbForm) {
+func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form articleThumbForm) {
 	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
@@ -226,9 +226,9 @@ func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, red
 
 	user := models.User{Userid: userid}
 	if form.Status {
-		user.RateArticle(form.ArticleId, ThumbRate, false)
+		user.RateArticle(form.ArticleId, models.ThumbRate, false)
 	} else {
-		user.RateArticle(form.ArticleId, ThumbRateMask, true)
+		user.RateArticle(form.ArticleId, models.ThumbRateMask, true)
 	}
 
 	redis.LogArticleThumb(userid, form.ArticleId, form.Status)
@@ -236,7 +236,7 @@ func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, red
 	writeResponse(request.RequestURI, resp, nil, errors.NoError)
 }
 
-func checkArticleThumbHandler(request *http.Request, resp http.ResponseWriter, form articleThumbForm, redis *RedisLogger) {
+func checkArticleThumbHandler(request *http.Request, resp http.ResponseWriter, form articleThumbForm, redis *models.RedisLogger) {
 	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
@@ -290,7 +290,7 @@ func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form
 	writeResponse(request.RequestURI, resp, respData, err)
 }
 */
-func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form relatedArticleForm, redis *RedisLogger) {
+func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form relatedArticleForm, redis *models.RedisLogger) {
 	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
@@ -352,7 +352,7 @@ func relatedArticleHandler(request *http.Request, resp http.ResponseWriter, form
 	writeResponse(request.RequestURI, resp, respData, e)
 }
 
-func articleViewersHandler(request *http.Request, resp http.ResponseWriter, params martini.Params, redis *RedisLogger) {
+func articleViewersHandler(request *http.Request, resp http.ResponseWriter, params martini.Params, redis *models.RedisLogger) {
 	aid := params["id"]
 
 	viewers := redis.ArticleViewers(aid)
@@ -361,7 +361,7 @@ func articleViewersHandler(request *http.Request, resp http.ResponseWriter, para
 
 	jsonStructs := make([]userJsonStruct, len(users))
 	for i, _ := range users {
-		view, thumb, review := redis.UserArticleCount(users[i].Userid)
+		view, thumb, review, _ := users[i].ArticleCount()
 
 		jsonStructs[i].Userid = users[i].Userid
 		jsonStructs[i].Nickname = users[i].Nickname
@@ -380,7 +380,7 @@ func articleViewersHandler(request *http.Request, resp http.ResponseWriter, para
 	writeResponse(request.RequestURI, resp, jsonStructs, err)
 }
 
-func articleThumbsHandler(request *http.Request, resp http.ResponseWriter, params martini.Params, redis *RedisLogger) {
+func articleThumbsHandler(request *http.Request, resp http.ResponseWriter, params martini.Params, redis *models.RedisLogger) {
 	aid := params["id"]
 
 	viewers := redis.ArticleThumbers(aid)
@@ -389,7 +389,7 @@ func articleThumbsHandler(request *http.Request, resp http.ResponseWriter, param
 
 	jsonStructs := make([]userJsonStruct, len(users))
 	for i, _ := range users {
-		view, thumb, review := redis.UserArticleCount(users[i].Userid)
+		view, thumb, review, _ := users[i].ArticleCount()
 
 		jsonStructs[i].Userid = users[i].Userid
 		jsonStructs[i].Nickname = users[i].Nickname

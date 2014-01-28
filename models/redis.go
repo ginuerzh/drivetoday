@@ -1,13 +1,11 @@
 // log
-package controllers
+package models
 
 import (
 	//"fmt"
-	"github.com/codegangsta/martini"
 	"github.com/garyburd/redigo/redis"
 	"log"
-	"net/http"
-	"strconv"
+	//"strconv"
 	"strings"
 	"time"
 )
@@ -50,10 +48,6 @@ func onlineTimeString() string {
 	return now.Format("200601021504")
 }
 
-func dateString(t time.Time) string {
-	return t.Format("2006-01-02")
-}
-
 type RedisLogger struct {
 	//pool *redis.Pool
 	conn redis.Conn
@@ -69,7 +63,7 @@ func (logger *RedisLogger) Close() error {
 
 // log register users per day
 func (logger *RedisLogger) LogRegister(userid string) {
-	logger.conn.Do("SADD", redisStatRegisterPrefix+dateString(time.Now()), userid)
+	logger.conn.Do("SADD", redisStatRegisterPrefix+DateString(time.Now()), userid)
 }
 
 func (logger *RedisLogger) RegisterCount(days int) []int64 {
@@ -141,10 +135,10 @@ func (logger *RedisLogger) setsCount(key string, days int) []int64 {
 	conn := logger.conn
 
 	conn.Send("MULTI")
-	conn.Send("SCARD", key+dateString(t))
+	conn.Send("SCARD", key+DateString(t))
 	for i := 1; i < days; i++ {
 		t = t.Add(d)
-		conn.Send("SCARD", key+dateString(t))
+		conn.Send("SCARD", key+DateString(t))
 	}
 	values, err := redis.Values(conn.Do("EXEC"))
 	if err != nil {
@@ -173,7 +167,7 @@ func (logger *RedisLogger) LogUserArticle(userid, article string, rate int) {
 		conn.Send("ZADD", redisUserArticlePrefix+userid, rate, article)
 	}
 }
-*/
+
 func (logger *RedisLogger) UserArticleRate(userid string, articles ...string) []int {
 	conn := logger.conn
 
@@ -190,7 +184,7 @@ func (logger *RedisLogger) UserArticleRate(userid string, articles ...string) []
 
 	return rates
 }
-
+*/
 func (logger *RedisLogger) LogArticleCache(articleId string, article []byte) {
 	d := time.Minute * 5
 
@@ -232,7 +226,7 @@ func (logger *RedisLogger) ClearMessages(userid string) {
 // log unique visitors per day
 func (logger *RedisLogger) LogVisitor(ip string) {
 	conn := logger.conn
-	conn.Do("SADD", redisStatVisitorPrefix+dateString(time.Now()), ip)
+	conn.Do("SADD", redisStatVisitorPrefix+DateString(time.Now()), ip)
 }
 
 func (logger *RedisLogger) VisitorsCount(days int) []int64 {
@@ -242,7 +236,7 @@ func (logger *RedisLogger) VisitorsCount(days int) []int64 {
 // log pv per day
 func (logger *RedisLogger) LogPV(path string) {
 	conn := logger.conn
-	conn.Do("ZINCRBY", redisStatPvPrefix+dateString(time.Now()), 1, path)
+	conn.Do("ZINCRBY", redisStatPvPrefix+DateString(time.Now()), 1, path)
 }
 
 type KV struct {
@@ -252,7 +246,7 @@ type KV struct {
 
 func (logger *RedisLogger) PVs(dates ...string) map[string][]KV {
 	if len(dates) == 0 {
-		dates = []string{dateString(time.Now())}
+		dates = []string{DateString(time.Now())}
 	}
 
 	pvs := make(map[string][]KV, len(dates))
@@ -287,6 +281,7 @@ func (logger *RedisLogger) PV(date string) []KV {
 	return pvs
 }
 
+/*
 func (logger *RedisLogger) RelatedArticles(article string, max int) []string {
 	conn := logger.conn
 	members, err := redis.Strings(conn.Do("SMEMBERS", redisArticleViewPrefix+article))
@@ -371,7 +366,7 @@ func (logger *RedisLogger) UserArticleCount(userid string) (view, thumb, review 
 
 	return
 }
-
+*/
 func (logger *RedisLogger) ArticleCount(articleId string) (view, thumb, review int64) {
 	conn := logger.conn
 	conn.Send("MULTI")
@@ -407,7 +402,7 @@ func (logger *RedisLogger) LogArticleView(articleId string, userid string) {
 	conn := logger.conn
 	//log.Println("log article view", articleId, userid)
 	conn.Send("MULTI")
-	conn.Send("ZINCRBY", redisStatArticleViewPrefix+dateString(time.Now()), 1, articleId)
+	conn.Send("ZINCRBY", redisStatArticleViewPrefix+DateString(time.Now()), 1, articleId)
 	conn.Send("ZINCRBY", redisStatArticleView, 1, articleId)
 	conn.Send("SADD", redisArticleViewPrefix+articleId, userid)
 	conn.Send("ZADD", redisUserArticlePrefix+userid, AccessRate, articleId)
@@ -462,10 +457,10 @@ func (logger *RedisLogger) ArticleTopView(days, max int) []string {
 	d, _ := time.ParseDuration("-24h")
 
 	keys := make([]string, days)
-	keys[0] = redisStatArticleViewPrefix + dateString(t)
+	keys[0] = redisStatArticleViewPrefix + DateString(t)
 	for i := 1; i < days; i++ {
 		t = t.Add(d)
-		keys[i] = redisStatArticleViewPrefix + dateString(t)
+		keys[i] = redisStatArticleViewPrefix + DateString(t)
 	}
 
 	args := redis.Args{}.Add(redisStatArticleViewPrefix + "out").Add(days).AddFlat(keys)
@@ -578,19 +573,4 @@ func (logger *RedisLogger) ArticleTopThumb(max int) []string {
 	}
 
 	return articles
-}
-
-func RedisLoggerHandler(request *http.Request, c martini.Context, pool *redis.Pool) {
-	logger := NewRedisLogger(pool.Get())
-	defer logger.Close()
-
-	// log request
-	s := strings.Split(request.RemoteAddr, ":")
-	if len(s) > 0 {
-		logger.LogVisitor(s[0])
-	}
-	logger.LogPV(request.URL.Path)
-
-	c.Map(logger)
-	c.Next()
 }

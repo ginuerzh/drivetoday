@@ -6,6 +6,17 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
+	"time"
+)
+
+const (
+	AccessRate = 1 << iota // 001
+	ThumbRate              // 010
+	ReviewRate             // 100
+
+	AccessRateMask = 6 // 110
+	ThumbRateMask  = 5 // 101
+	ReviewRateMask = 3 // 011
 )
 
 var (
@@ -19,6 +30,10 @@ var (
 	fileColl       = "files"
 	eventColl      = "events"
 	rateColl       = "rates"
+)
+
+var (
+	GuestUserPrefix = "guest:"
 )
 
 func getSession() *mgo.Session {
@@ -121,4 +136,8 @@ func ensureIndex(collection string, keys ...string) error {
 	}
 
 	return withCollection(collection, nil, ensure)
+}
+
+func DateString(t time.Time) string {
+	return t.Format("2006-01-02")
 }

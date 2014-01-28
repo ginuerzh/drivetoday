@@ -172,12 +172,6 @@ func (this *User) RelatedUsers(article string, limit int) (users []User, errId i
 }
 */
 
-func (this *User) ArticleRate() (UserRate, int) {
-	rate := UserRate{}
-	_, err := rate.FindByUserid(this.Userid)
-	return rate, err
-}
-
 func (this *User) RateArticle(articleId string, rate int, mask bool) int {
 	selector := bson.M{
 		"userid":        this.Userid,
@@ -312,6 +306,45 @@ func (this *User) Events(skip, limit int) (total int, events []Event, errId int)
 	}
 
 	errId = errors.NoError
+	return
+}
+
+func (this *User) ArticleRate() (UserRate, int) {
+	rate := UserRate{}
+	_, err := rate.FindByUserid(this.Userid)
+	return rate, err
+}
+
+func (this *User) RatedArticles(rateType int) (articles []string, errId int) {
+	userRate, errId := this.ArticleRate()
+	if errId != errors.NoError {
+		return
+	}
+
+	for _, rate := range userRate.Rates {
+		if (rate.Rate & rateType) > 0 {
+			articles = append(articles, rate.Article)
+		}
+	}
+
+	return
+}
+
+func (this *User) ArticleCount() (views, thumbs, reviews int64, errId int) {
+	rates, errId := this.ArticleRate()
+	if errId != errors.NoError {
+		return
+	}
+
+	views = int64(len(rates.Rates))
+	for _, rate := range rates.Rates {
+		if (rate.Rate & ThumbRate) > 0 {
+			thumbs++
+		}
+		if (rate.Rate & ReviewRate) > 0 {
+			reviews++
+		}
+	}
 	return
 }
 

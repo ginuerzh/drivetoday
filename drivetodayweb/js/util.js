@@ -76,7 +76,7 @@ function statusIcon(online) {
 }
 
 
-function createUser(data) {
+function createUser(data, withModal) {
 	var user = $('<div class="row">')
 	var profile = $('<img class="user-profile img-circle" src="/images/1.gif">')
 	if (data['profile_image'].length > 0) profile.attr('src', data['profile_image'])	
@@ -92,9 +92,22 @@ function createUser(data) {
 	var location = $('<span>').text(data['location'])
 	//var about = $('<span>').text(data['about'])
 	
-	var view = $('<span class="stat pull-right">').append(data['view_count'] + ' ', glyphicon('eye-open'))
-	var thumb = $('<span class="stat pull-right">').append(data['thumb_count'] + ' ', glyphicon('thumbs-up'))
-	var review = $('<span class="stat pull-right">').append(data['review_count'] + ' ', glyphicon('comment'))
+	var view = $('<span class="stat pull-right">')
+	var thumb = $('<span class="stat pull-right">')
+	var review = $('<span class="stat pull-right">')
+	
+	if (withModal) {
+		view.append($('<a href="#" class="view-modal-btn" data-toggle="modal" data-target="#viewModal">').attr('id', data['userid']).
+							append(data['view_count'] + ' ', glyphicon('eye-open')))
+		thumb.append($('<a href="#" class="thumb-modal-btn" data-toggle="modal" data-target="#thumbModal">').attr('id', data['userid']).
+							append(data['thumb_count'] + ' ', glyphicon('thumbs-up')))
+		review.append($('<a href="#" class="comment-modal-btn" data-toggle="modal" data-target="#commentModal">').attr('id', data['userid']).
+							append(data['review_count'] + ' ', glyphicon('comment')))
+	} else {
+		view.append(data['view_count'] + ' ', glyphicon('eye-open'))
+		thumb.append(data['thumb_count'] + ' ', glyphicon('thumbs-up'))
+		review.append(data['review_count'] + ' ', glyphicon('comment'))
+	}
 	
 	user.append(col(2, profile))
 	user.append(col(6, link(host+'/user.html?uid=' + data['userid'], nickname)).
@@ -140,6 +153,46 @@ function createReview(data) {
 	})
 	
 	return review
+}
+
+function createArticle(data, withModal) {
+	var article = $('<div class="row">')
+	var detail = col(12)
+	var title = $('<div class="row">')
+	var info = $('<div class="row">')
+	
+	title.append(col(10, link("/article.html?id=" + data['article_id'], $('<span class="h4">').text(data['title']))))
+	title.append(col(2, $('<img class="thumbnail">').attr('src', data['first_image'])))
+	detail.append(title)
+	
+	info.append(col(2, link(data['src_link'], data['source'], true)))
+	info.append(col(3, data['publish_time'].substring(2, 16)))
+	
+	var view = $('<span class="stat">')
+	var thumb = $('<span class="stat">')
+	var review = $('<span class="stat">')
+	
+	if (withModal) {
+		view.append($('<a href="#" class="view-modal-btn" data-toggle="modal" data-target="#viewModal">').attr('id', data['article_id']).
+						append(data['view_count'] + ' ', glyphicon('eye-open')))
+		thumb.append($('<a href="#" class="thumb-modal-btn" data-toggle="modal" data-target="#thumbModal">').attr('id', data['article_id']).
+						append(data['thumb_count'] + ' ', glyphicon('thumbs-up')))
+		review.append($('<a href="#" class="comment-modal-btn" data-toggle="modal" data-target="#commentModal">').attr('id', data['article_id']).
+						append(data['comment_count'] + ' ', glyphicon('comment')))
+	} else {
+		view.append(data['view_count'] + ' ', glyphicon('eye-open'))
+		thumb.append(data['thumb_count'] + ' ', glyphicon('thumbs-up'))
+		review.append(data['comment_count'] + ' ', glyphicon('comment'))
+	}
+	
+	info.append(col(2, view))
+	info.append(col(2, thumb))
+	info.append(col(2, review))
+	detail.append(info)
+	
+	article.append(detail)
+	
+	return $('<div class="row">').append(col(12, panel(article)))
 }
 
 function getResponse(data) {

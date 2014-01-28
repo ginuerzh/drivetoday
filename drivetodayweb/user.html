@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<!-- Bootstrap -->
+<link href="/css/bootstrap.css" rel="stylesheet" media="screen">
+
+<!-- JavaScript plugins (requires jQuery) -->
+<script src="/js/jquery-2.0.3.js"></script>
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+<script src="/js/bootstrap.js"></script>
+
+<script src="/js/util.js"></script>
+<link href="/css/util.css" rel="stylesheet">
+
+<title>今日自驾</title>
+
+<script type="text/javascript" >
+
+$(function(){
+	var url = window.location.href
+	var uid = url.substring(url.lastIndexOf("=") + 1, url.length)
+	
+	$.getJSON(host + "/1/user/detail/" + uid, function(data){
+		var user = getResponse(data)
+		if (user == null) return
+	})
+}
+</script>
+
+</head>
+<body>
+
+</body>
+</html>

@@ -38,34 +38,6 @@ function getArticles(data) {
  	else 				return resp['articles_without_content']
 }
 
-function createArticle(data) {
-	var article = $('<div class="row">')
-	var detail = col(12)
-	var title = $('<div class="row">')
-	var info = $('<div class="row">')
-	
-	title.append(col(10, link("/article.html?id=" + data['article_id'], $('<span class="h4">').text(data['title']))))
-	title.append(col(2, $('<img class="thumbnail">').attr('src', data['first_image'])))
-	detail.append(title)
-	
-	info.append(col(2, link(data['src_link'], data['source'], true)))
-	info.append(col(3, data['publish_time']))
-	
-	var view = $('<span class="stat">').append($('<a href="#" class="view-modal-btn" data-toggle="modal" data-target="#viewModal">').attr('id', data['article_id']).append(data['view_count'] + ' ', glyphicon('eye-open')))
-	var thumb = $('<span class="stat">').append($('<a href="#" class="thumb-modal-btn" data-toggle="modal" data-target="#thumbModal">').attr('id', data['article_id']).append(data['thumb_count'] + ' ', glyphicon('thumbs-up')))
-	var review = $('<span class="stat">').append($('<a href="#" class="comment-modal-btn" data-toggle="modal" data-target="#commentModal">').attr('id', data['article_id']).append(data['comment_count'] + ' ', glyphicon('comment')))
-	
-	
-	info.append(col(2, view))
-	info.append(col(2, thumb))
-	info.append(col(2, review))
-	detail.append(info)
-	
-	article.append(detail)
-	
-	return $('<div class="row">').append(col(12, panel(article)))
-}
-
 function loadViewers(aid) {
 	$.getJSON(host+"/1/article/viewers/" + aid, function(data){
 		var viewers = getResponse(data)
@@ -120,7 +92,7 @@ $(function(){
 		$(".right-content").append(pagination(page, pages, host + '/articles.html?p='))	
 		
 		$.each(articles, function(i, article) {
-			var row = createArticle(article)
+			var row = createArticle(article, true)
 			$(".right-content").append(row)
 		})
 		

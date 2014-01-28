@@ -25,6 +25,8 @@ const (
 	SetProfileV1Uri   = "/1/user/set_profile_image"
 	UserNewsV1Uri     = "/1/user/news"
 	UserListV1Uri     = "/1/users"
+
+	UserArticlesV1Uri = "/1/user/article/:type/:id"
 )
 
 const (
@@ -44,6 +46,8 @@ func BindUserApi(m *martini.ClassicMartini) {
 	m.Post(SetProfileV1Uri, binding.Json(setProfileForm{}), ErrorHandler, setProfileHandler)
 	//m.Get(UserNewsV1Uri, binding.Form(userNewsForm{}), ErrorHandler, userNewsHandler)
 	m.Get(UserListV1Uri, binding.Form(userListForm{}), ErrorHandler, userListHandler)
+
+	m.Get(UserArticlesV1Uri, userArticlesHandler)
 }
 
 // user register parameter
@@ -54,7 +58,7 @@ type userRegForm struct {
 	Role     string `json:"role"`
 }
 
-func registerHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form userRegForm) {
+func registerHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form userRegForm) {
 	var user models.User
 
 	user.Userid = strings.ToLower(form.Email)
@@ -100,7 +104,7 @@ type weiboInfo struct {
 	ErrCode     int    `json:"error_code"`
 }
 
-func weiboLogin(uid, password string, redis *RedisLogger) (*models.User, int) {
+func weiboLogin(uid, password string, redis *models.RedisLogger) (*models.User, int) {
 	weibo := weiboInfo{}
 	user := &models.User{}
 
@@ -156,11 +160,11 @@ func weiboLogin(uid, password string, redis *RedisLogger) (*models.User, int) {
 
 	return user, errors.NoError
 }
-func guestLogin(redis *RedisLogger) (*models.User, int) {
+func guestLogin(redis *models.RedisLogger) (*models.User, int) {
 	user := &models.User{}
 	//user.Role = UserTypeGuest
 	//user.RegTime = time.Now()
-	user.Userid = GuestUserPrefix + strconv.Itoa(time.Now().Nanosecond()) + ":" + strconv.Itoa(random.Intn(65536))
+	user.Userid = models.GuestUserPrefix + strconv.Itoa(time.Now().Nanosecond()) + ":" + strconv.Itoa(random.Intn(65536))
 	/*
 		if err := user.Save(); err != errors.NoError {
 			return nil, err
@@ -171,7 +175,7 @@ func guestLogin(redis *RedisLogger) (*models.User, int) {
 	return user, errors.NoError
 }
 
-func loginHandler(request *http.Request, resp http.ResponseWriter, form loginForm, redis *RedisLogger) {
+func loginHandler(request *http.Request, resp http.ResponseWriter, form loginForm, redis *models.RedisLogger) {
 	var user *models.User
 	var err int
 	accessToken := Uuid()
@@ -180,7 +184,7 @@ func loginHandler(request *http.Request, resp http.ResponseWriter, form loginFor
 		user, err = weiboLogin(form.Userid, form.Password, redis)
 	} else if form.Type == UserTypeGuest {
 		user, err = guestLogin(redis)
-		accessToken = GuestUserPrefix + accessToken // start with 'guest:' for redis checking
+		accessToken = models.GuestUserPrefix + accessToken // start with 'guest:' for redis checking
 	} else if form.Type == UserTypeEmail {
 		var find bool
 		if find, err = user.FindByUserPass(strings.ToLower(form.Userid), Md5(form.Password)); !find {
@@ -205,7 +209,7 @@ type logoutForm struct {
 	AccessToken string `json:"access_token" binding:"required"`
 }
 
-func logoutHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form logoutForm) {
+func logoutHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form logoutForm) {
 	redis.DelOnlineUser(form.AccessToken)
 	writeResponse(request.RequestURI, resp, nil, errors.NoError)
 
@@ -230,7 +234,7 @@ type userJsonStruct struct {
 	Online   bool   `json:"online"`
 }
 
-func userInfoHandler(request *http.Request, resp http.ResponseWriter, form getInfoForm, redis *RedisLogger) {
+func userInfoHandler(request *http.Request, resp http.ResponseWriter, form getInfoForm, redis *models.RedisLogger) {
 	var user models.User
 
 	if find, err := user.FindByUserId(form.Userid); !find {
@@ -261,7 +265,7 @@ type setProfileForm struct {
 	//User        models.User `json:"-"`
 }
 
-func setProfileHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form setProfileForm) {
+func setProfileHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form setProfileForm) {
 	var user models.User
 
 	userid := redis.OnlineUser(form.AccessToken)
@@ -288,7 +292,7 @@ type userListForm struct {
 	AccessToken string `form:"access_token" json:"access_token"`
 }
 
-func userListHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form userListForm) {
+func userListHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form userListForm) {
 	pageSize := DefaultPageSize + 3
 	total, users, err := models.UserList(pageSize*form.PageNumber, pageSize)
 	if err != errors.NoError {
@@ -298,7 +302,7 @@ func userListHandler(request *http.Request, resp http.ResponseWriter, redis *Red
 
 	jsonStructs := make([]userJsonStruct, len(users))
 	for i, _ := range users {
-		view, thumb, review := redis.UserArticleCount(users[i].Userid)
+		view, thumb, review, _ := users[i].ArticleCount()
 
 		jsonStructs[i].Userid = users[i].Userid
 		jsonStructs[i].Nickname = users[i].Nickname
@@ -320,4 +324,40 @@ func userListHandler(request *http.Request, resp http.ResponseWriter, redis *Red
 	respData["total"] = total
 	respData["users"] = jsonStructs
 	writeResponse(request.RequestURI, resp, respData, err)
+}
+
+func userArticlesHandler(request *http.Request, resp http.ResponseWriter, params martini.Params, redis *models.RedisLogger) {
+	articleType := params["type"]
+	userid := params["id"]
+
+	user := models.User{Userid: userid}
+
+	var ids []string
+
+	switch articleType {
+	case "view":
+		ids, _ = user.RatedArticles(models.AccessRate)
+	case "thumb":
+		ids, _ = user.RatedArticles(models.ThumbRate)
+	case "review":
+		ids, _ = user.RatedArticles(models.ReviewRate)
+	}
+
+	articles, err := models.GetArticles(ids...)
+	jsonStructs := make([]articleJsonStruct, len(articles))
+	for i, _ := range articles {
+		view, thumb, review := redis.ArticleCount(articles[i].Id.Hex())
+
+		jsonStructs[i].Id = articles[i].Id.Hex()
+		jsonStructs[i].Title = articles[i].Title
+		jsonStructs[i].Source = articles[i].Source
+		jsonStructs[i].Url = articles[i].Url
+		jsonStructs[i].PubTime = articles[i].PubTime.Format(TimeFormat)
+		jsonStructs[i].Image = imageUrl(articles[i].Image, ImageThumbnail)
+		jsonStructs[i].Views = int(view)
+		jsonStructs[i].Thumbs = int(thumb)
+		jsonStructs[i].Reviews = int(review)
+	}
+
+	writeResponse(request.RequestURI, resp, jsonStructs, err)
 }

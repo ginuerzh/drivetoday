@@ -35,9 +35,43 @@ function getUsers(data) {
  	else 				return resp['users']
 }
 
-function glyphicon(name) {
-	return $('<span class="glyphicon glyphicon-' + name + '">')
+function loadViews(uid) {
+	$.getJSON(host+"/1/user/article/view/" + uid, function(data){
+		var views = getResponse(data)
+		if (views == null) return 
+		
+		$('#view-modal-body').empty()
+		$.each(views, function(i, view) {
+			$('#view-modal-body').append(createArticle(view))
+		})
+	})
 }
+
+function loadThumbs(uid) {
+	$.getJSON(host+"/1/user/article/thumb/" + uid, function(data){
+		var thumbs = getResponse(data)
+		if (thumbs == null) return 
+		
+		$('#thumb-modal-body').empty()
+		$.each(thumbs, function(i, thumb) {
+			$('#thumb-modal-body').append(createArticle(thumb))
+		})
+	})
+}
+
+function loadReviews(uid) {
+	$.getJSON(host + "/1/user/article/review/" + uid, function(data){
+		var reviews = getResponse(data)
+		if (reviews == null) return
+
+		$('#comment-modal-body').empty()
+		$.each(reviews, function(i, review) {
+			$('#comment-modal-body').append(createArticle(review))
+		})
+	})
+}
+
+
 
 $(function(){
 	var url = window.location.href
@@ -60,13 +94,28 @@ $(function(){
 				r = row()
 				$('.right-content').append(r)
 			}
-			var u = createUser(user)
-			//console.log('append', i, u)
+			var u = createUser(user, true)
 			
 			r.append(col(4, panel(u)))
 		})
 		
 		$(".right-content").append(pagination(page, pages, host + '/users.html?p='))	
+		
+		
+		$('.comment-modal-btn').click(function(){
+			uid = $(this).attr('id')
+			loadReviews(uid)
+		})
+		
+		$('.thumb-modal-btn').click(function(){
+			uid = $(this).attr('id')
+			loadThumbs(uid)
+		})
+		
+		$('.view-modal-btn').click(function(){
+			uid = $(this).attr('id')
+			loadViews(uid)
+		})
 	})
 })
 
@@ -86,5 +135,44 @@ $(function(){
 		</div>
 		<div class="col-md-10 right-content"></div>
 	</div>
+	
+<div class="modal fade" id="viewModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title" id="myModalLabel">浏览过的文章</h4>
+      </div>
+      <div class="modal-body" id="view-modal-body">
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<div class="modal fade" id="thumbModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title" id="myModalLabel">赞过的文章</h4>
+      </div>
+      <div class="modal-body" id="thumb-modal-body">
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<div class="modal fade" id="commentModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title" id="myModalLabel">评论过的文章</h4>
+      </div>
+      <div class="modal-body" id="comment-modal-body">
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
 </body>
 </html>

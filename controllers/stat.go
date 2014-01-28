@@ -4,6 +4,7 @@ package controllers
 import (
 	"github.com/codegangsta/martini"
 	"github.com/ginuerzh/drivetoday/errors"
+	"github.com/ginuerzh/drivetoday/models"
 	"net/http"
 	"time"
 )
@@ -16,10 +17,10 @@ func BindStatApi(m *martini.ClassicMartini) {
 	m.Get(ServerStatV1Uri, serverStatHandler)
 }
 
-func serverStatHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger) {
+func serverStatHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger) {
 	respData := make(map[string]interface{})
 	respData["visitors"] = redis.VisitorsCount(3)
-	respData["pv"] = redis.PV(dateString(time.Now()))
+	respData["pv"] = redis.PV(models.DateString(time.Now()))
 	respData["registers"] = redis.RegisterCount(3)
 
 	respData["top_views"] = redis.ArticleTopView(3, 3)

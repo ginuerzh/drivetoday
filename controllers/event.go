@@ -41,7 +41,7 @@ type eventJsonStruct struct {
 	Message   string `json:"message"`
 }
 
-func eventListHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventListForm) {
+func eventListHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form eventListForm) {
 	var user models.User
 
 	userid := redis.OnlineUser(form.AccessToken)
@@ -76,7 +76,7 @@ func eventListHandler(request *http.Request, resp http.ResponseWriter, redis *Re
 	writeResponse(request.RequestURI, resp, respData, err)
 }
 
-func newEventsHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventListForm) {
+func newEventsHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form eventListForm) {
 	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
@@ -92,7 +92,7 @@ type eventReadForm struct {
 	Ids         []string `form:"event_ids" json:"event_ids"`
 }
 
-func eventReadHandler(request *http.Request, resp http.ResponseWriter, redis *RedisLogger, form eventReadForm) {
+func eventReadHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form eventReadForm) {
 	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
 		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
