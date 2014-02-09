@@ -25,11 +25,11 @@ const (
 	redisArticleReviewPrefix  = "drivetoday:article:review:"  // set per article
 	redisArticleRelatedPrefix = "drivetoday:article:related:" // sorted set per article
 
-	redisUserMessagePrefix    = "drivetoday:user:msgs:"     // list per user
-	redisUserOnlinesPrefix    = "drivetoday:user:onlines:"  // set per half an hour
-	redisUserOnlineUserPrefix = "drivetoday:user:online:"   // string per user
-	redisUserGuest            = "drivetoday:user:guest"     // hashes for all guests
-	redisUserArticlePrefix    = "drivetoday:user:articles:" // sorted set per user
+	redisUserMessagePrefix    = "drivetoday:user:msgs:"    // list per user
+	redisUserOnlinesPrefix    = "drivetoday:user:onlines:" // set per half an hour
+	redisUserOnlineUserPrefix = "drivetoday:user:online:"  // string per user
+	redisUserGuest            = "drivetoday:user:guest"    // hashes for all guests
+	//redisUserArticlePrefix    = "drivetoday:user:articles:" // sorted set per user
 )
 
 const (
@@ -405,7 +405,7 @@ func (logger *RedisLogger) LogArticleView(articleId string, userid string) {
 	conn.Send("ZINCRBY", redisStatArticleViewPrefix+DateString(time.Now()), 1, articleId)
 	conn.Send("ZINCRBY", redisStatArticleView, 1, articleId)
 	conn.Send("SADD", redisArticleViewPrefix+articleId, userid)
-	conn.Send("ZADD", redisUserArticlePrefix+userid, AccessRate, articleId)
+	//conn.Send("ZADD", redisUserArticlePrefix+userid, AccessRate, articleId)
 	conn.Do("EXEC")
 }
 
@@ -496,7 +496,7 @@ func (logger *RedisLogger) LogArticleReview(userid, articleId string) {
 	conn.Send("MULTI")
 	conn.Send("ZINCRBY", redisStatArticleReview, 1, articleId)
 	conn.Send("SADD", redisArticleReviewPrefix+articleId, userid)
-	conn.Send("ZADD", redisUserArticlePrefix+userid, ReviewRate|AccessRate, articleId)
+	//conn.Send("ZADD", redisUserArticlePrefix+userid, ReviewRate|AccessRate, articleId)
 	conn.Do("EXEC")
 }
 
@@ -531,7 +531,7 @@ func (logger *RedisLogger) LogArticleThumb(userid, articleId string, thumb bool)
 	conn.Send("ZINCRBY", redisStatArticleThumb, inc, articleId)
 	if thumb {
 		conn.Send("SADD", redisArticleThumbPrefix+articleId, userid)
-		conn.Send("ZADD", redisUserArticlePrefix+userid, ThumbRate|AccessRate, articleId)
+		//conn.Send("ZADD", redisUserArticlePrefix+userid, ThumbRate|AccessRate, articleId)
 	} else {
 		conn.Send("SREM", redisArticleThumbPrefix+articleId, userid)
 	}
