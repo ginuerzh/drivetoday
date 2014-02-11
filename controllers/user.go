@@ -144,7 +144,7 @@ func weiboLogin(uid, password string, redis *models.RedisLogger) (*models.User, 
 		return user, errors.NoError
 	}
 
-	user.Nickname = "weibo_" + weibo.ScreenName
+	user.Nickname = weibo.ScreenName
 	user.Gender = weibo.Gender
 	user.Url = weibo.Url
 	user.Profile = weibo.Avatar
