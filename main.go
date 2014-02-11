@@ -5,6 +5,7 @@ import (
 	"github.com/codegangsta/martini"
 	"github.com/garyburd/redigo/redis"
 	"github.com/ginuerzh/drivetoday/controllers"
+	"github.com/martini-contrib/gzip"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +19,7 @@ func init() {
 func classic() *martini.ClassicMartini {
 	r := martini.NewRouter()
 	m := martini.New()
+	m.Use(gzip.All())
 	m.Use(martini.Logger())
 	m.Use(controllers.RedisLoggerHandler)
 	m.Use(martini.Recovery())
