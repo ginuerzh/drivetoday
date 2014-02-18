@@ -41,8 +41,8 @@ function getArticles(data) {
 function loadViewers(aid) {
 	$.getJSON(host+"/1/article/viewers/" + aid, function(data){
 		var viewers = getResponse(data)
-		if (viewers == null) return 
-		
+		if (viewers == null) return
+
 		$('#view-modal-body').empty()
 		$.each(viewers, function(i, viewer) {
 			$('#view-modal-body').append(panel(createUser(viewer)))
@@ -53,8 +53,8 @@ function loadViewers(aid) {
 function loadThumbs(aid) {
 	$.getJSON(host+"/1/article/thumbs/" + aid, function(data){
 		var thumbs = getResponse(data)
-		if (thumbs == null) return 
-		
+		if (thumbs == null) return
+
 		$('#thumb-modal-body').empty()
 		$.each(thumbs, function(i, thumb) {
 			$('#thumb-modal-body').append(panel(createUser(thumb)))
@@ -81,7 +81,7 @@ $(function(){
 	var current = parseInt(url.substring(url.lastIndexOf("=") + 1, url.length))
 	if (isNaN(current)) current = 0
 
-	$.getJSON(host + "/1/article/timelines?page_number=" + current, function(data){
+	$.getJSON(host + "/1/article/timelines?access_token=" + accessToken + "&page_number=" + current, function(data){
 		var articles = getArticles(data)
 		if (articles == null) return
 
@@ -89,27 +89,27 @@ $(function(){
 		var total = data['response_data']['total']
 		var pages = Math.ceil(total / 10)
 
-		$(".right-content").append(pagination(page, pages, host + '/articles.html?p='))	
-		
+		$(".right-content").append(pagination(page, pages, host + '/articles.html?p='))
+
 		$.each(articles, function(i, article) {
 			var row = createArticle(article, true)
 			$(".right-content").append(row)
 		})
-		
-		$(".right-content").append(pagination(page, pages, host + '/articles.html?p='))	
-		
+
+		$(".right-content").append(pagination(page, pages, host + '/articles.html?p='))
+
 		$('.comment-modal-btn').click(function(){
 			aid = $(this).attr('id')
 			//console.log(aid)
 			loadReviews(aid)
 		})
-		
+
 		$('.thumb-modal-btn').click(function(){
 			aid = $(this).attr('id')
 			//console.log(aid)
 			loadThumbs(aid)
 		})
-		
+
 		$('.view-modal-btn').click(function(){
 			aid = $(this).attr('id')
 			//console.log(aid)
@@ -129,13 +129,13 @@ $(function(){
 				  <a href="/users.html" class="list-group-item">用户列表</a>
 				  <a href="/articles.html" class="list-group-item active">文章列表</a>
 				</div>
-			</div>	
-		</div>		
+			</div>
+		</div>
 	</div>
 	<div class="col-md-10 right-content"></div>
 </div>
-	
-	
+
+
 <div class="modal fade" id="viewModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">

@@ -18,7 +18,7 @@
 <style type="text/css">
 
 .title {
-	margin-bottom: 30px;  
+	margin-bottom: 30px;
 }
 .title-text {
 	text-align: center;
@@ -60,22 +60,22 @@ function createTitle(data) {
 	//console.log(data)
 	title.append(col(12, $('<h3 class="title-text">').text(data['title'])))
 	detail.append(title)
-	
+
 	info.append(col(2, link(data['src_link'], data['source'])))
 	info.append(col(3, data['publish_time']))
-	
+
 	var view = $('<span class="stat">').append($('<a href="#" id="view-modal-btn" data-toggle="modal" data-target="#viewModal">').append(data['view_count'] + ' ', glyphicon('eye-open')))
 	var thumb = $('<span class="stat">').append($('<a href="#" id="thumb-modal-btn" data-toggle="modal" data-target="#thumbModal">').append(data['thumb_count'] + ' ', glyphicon('thumbs-up')))
 	var review = $('<span class="stat">').append($('<a href="#" id="comment-modal-btn" data-toggle="modal" data-target="#commentModal">').append(data['comment_count'] + ' ', glyphicon('comment')))
-	
+
 	info.append(col(2, view))
 	info.append(col(2, thumb))
 	info.append(col(2, review))
 	detail.append(info)
-	
-	article.append(detail)	
-	
-	return article	
+
+	article.append(detail)
+
+	return article
 }
 
 
@@ -84,8 +84,8 @@ var viewers_loaded = false
 function loadViewers(aid) {
 	$.getJSON(host+"/1/article/viewers/" + aid, function(data){
 		var viewers = getResponse(data)
-		if (viewers == null) return 
-		
+		if (viewers == null) return
+
 		$.each(viewers, function(i, viewer) {
 			$('#view-modal-body').append(panel(createUser(viewer)))
 		})
@@ -96,8 +96,8 @@ var thumbs_loaded = false
 function loadThumbs(aid) {
 	$.getJSON(host+"/1/article/thumbs/" + aid, function(data){
 		var thumbs = getResponse(data)
-		if (thumbs == null) return 
-		
+		if (thumbs == null) return
+
 		$.each(thumbs, function(i, thumb) {
 			$('#thumb-modal-body').append(panel(createUser(thumb)))
 		})
@@ -121,48 +121,48 @@ function loadReviews(aid) {
 $(function(){
 	var url = window.location.href
 	var aid = url.substring(url.lastIndexOf("=") + 1, url.length)
-	
-	$.getJSON(host + "/1/article/get?article_id=" + aid, function(data){
+
+	$.getJSON(host + "/1/article/get?access_token=" + accessToken + "&article_id=" + aid, function(data){
 		var article = getResponse(data)
 		if (article == null) return
-		
+
 		$(".title").append(createTitle(article))
-		
-		var contents = $('<div classs="row">')		
-		
+
+		var contents = $('<div classs="row">')
+
 		$.each(article['content'], function(i, segment) {
-			var p = $('<p>')			
+			var p = $('<p>')
 			if (segment['seg_type'] == 'image') {
 				p.append($('<img class="image">').attr('src', segment['image_orig']))
 			} else {
-				p.append(segment['seg_content'])			
+				p.append(segment['seg_content'])
 			}
 			contents.append(p)
 		})
-		
+
 		$('.content').append(panel(contents))
-		
+
 		$('#comment-modal-btn').click(function(){
 			if (!comment_loaded) {
 				loadReviews(aid)
-				comment_loaded = true	
+				comment_loaded = true
 			}
 		})
-		
+
 		$('#thumb-modal-btn').click(function(){
 			if (!thumbs_loaded) {
 				loadThumbs(aid)
-				thumbs_loaded = true	
+				thumbs_loaded = true
 			}
 		})
-		
+
 		$('#view-modal-btn').click(function(){
 			if (!viewers_loaded) {
 				loadViewers(aid)
-				viewers_loaded = true			
+				viewers_loaded = true
 			}
 		})
-		
+
 	})
 })
 
@@ -179,12 +179,12 @@ $(function(){
 				  <a href="/users.html" class="list-group-item">用户列表</a>
 				  <a href="/articles.html" class="list-group-item active">文章列表</a>
 				</div>
-			</div>	
-		</div>		
+			</div>
+		</div>
 	</div>
 	<div class="col-md-10 right-content">
 		<div class="row">
-			<div class="col-md-9 title"></div>	
+			<div class="col-md-9 title"></div>
 		</div>
 		<div class="row">
 			<div class="col-md-9 content"></div>
