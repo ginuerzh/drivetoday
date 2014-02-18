@@ -78,6 +78,12 @@ func articleSource(s string) string {
 }
 
 func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form articleListForm) {
+	userid := redis.OnlineUser(form.AccessToken)
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
+
 	total, articles, err := models.GetBriefArticles(DefaultPageSize*form.PageNumber, DefaultPageSize)
 	if err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)
@@ -90,7 +96,6 @@ func articleListHandler(request *http.Request, resp http.ResponseWriter, redis *
 		ids[i] = articles[i].Id.Hex()
 	}
 
-	userid := redis.OnlineUser(form.AccessToken)
 	if reads = redis.ArticleView(userid, ids...); reads == nil {
 		reads = make([]bool, len(articles))
 	}
@@ -132,12 +137,10 @@ type articleInfoForm struct {
 
 func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form articleInfoForm) {
 	userid := redis.OnlineUser(form.AccessToken)
-	/*
-		if len(userid) == 0 {
-			writeResponse(request.RequestURI, resp, nil, errors.AccessError)
-			return
-		}
-	*/
+	if len(userid) == 0 {
+		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		return
+	}
 
 	if len(userid) > 0 {
 		user := models.User{Userid: userid}
