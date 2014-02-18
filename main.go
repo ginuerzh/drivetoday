@@ -2,6 +2,7 @@
 package main
 
 import (
+	"flag"
 	"github.com/codegangsta/martini"
 	"github.com/garyburd/redigo/redis"
 	"github.com/ginuerzh/drivetoday/controllers"
@@ -9,11 +10,21 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
+)
+
+var (
+	staticDir string
+	port      int
 )
 
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	flag.StringVar(&staticDir, "static", "public", "static files directory")
+	flag.IntVar(&port, "port", 8080, "port on listen")
+	flag.Parse()
 }
 
 func classic() *martini.ClassicMartini {
@@ -23,7 +34,7 @@ func classic() *martini.ClassicMartini {
 	m.Use(martini.Logger())
 	m.Use(controllers.RedisLoggerHandler)
 	m.Use(martini.Recovery())
-	m.Use(martini.Static("drivetodayweb"))
+	m.Use(martini.Static(staticDir))
 	m.Action(r.Handle)
 	return &martini.ClassicMartini{m, r}
 }
@@ -42,7 +53,7 @@ func main() {
 	controllers.BindStatApi(m)
 
 	//m.Run()
-	http.ListenAndServe(":8080", m)
+	http.ListenAndServe(":"+strconv.Itoa(port), m)
 }
 
 func redisPool() *redis.Pool {
