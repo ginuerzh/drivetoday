@@ -83,6 +83,7 @@ func (logger *RedisLogger) OnlineUser(accessToken string) string {
 		userid, _ = redis.String(conn.Do("GET", redisUserOnlineUserPrefix+accessToken))
 	}
 
+	logger.LogVisitor(userid)
 	logger.LogOnlineUser(accessToken, userid)
 
 	return userid
@@ -224,9 +225,9 @@ func (logger *RedisLogger) ClearMessages(userid string) {
 }
 
 // log unique visitors per day
-func (logger *RedisLogger) LogVisitor(ip string) {
+func (logger *RedisLogger) LogVisitor(user string) {
 	conn := logger.conn
-	conn.Do("SADD", redisStatVisitorPrefix+DateString(time.Now()), ip)
+	conn.Do("SADD", redisStatVisitorPrefix+DateString(time.Now()), user)
 }
 
 func (logger *RedisLogger) VisitorsCount(days int) []int64 {
