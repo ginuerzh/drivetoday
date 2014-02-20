@@ -19,7 +19,7 @@ func RedisLoggerHandler(request *http.Request, c martini.Context, pool *redis.Po
 			logger.LogVisitor(s[0])
 		}
 	*/
-	logger.LogPV(request.RequestURI)
+	//logger.LogPV(request.URL.Path)
 
 	c.Map(logger)
 	c.Next()
