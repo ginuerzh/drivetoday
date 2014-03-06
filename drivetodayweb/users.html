@@ -38,8 +38,8 @@ function getUsers(data) {
 function loadViews(uid) {
 	$.getJSON(host+"/1/user/article/view/" + uid, function(data){
 		var views = getResponse(data)
-		if (views == null) return 
-		
+		if (views == null) return
+
 		$('#view-modal-body').empty()
 		$.each(views, function(i, view) {
 			$('#view-modal-body').append(createArticle(view))
@@ -50,8 +50,8 @@ function loadViews(uid) {
 function loadThumbs(uid) {
 	$.getJSON(host+"/1/user/article/thumb/" + uid, function(data){
 		var thumbs = getResponse(data)
-		if (thumbs == null) return 
-		
+		if (thumbs == null) return
+
 		$('#thumb-modal-body').empty()
 		$.each(thumbs, function(i, thumb) {
 			$('#thumb-modal-body').append(createArticle(thumb))
@@ -84,10 +84,10 @@ $(function(){
 
 		var page = data['response_data']['page_number']
 		var total = data['response_data']['total']
-		var pages = Math.ceil(total / 10)
+		var pages = Math.ceil(total / 13)
 
-		$(".container").append(pagination(page, pages, host + '/users.html?p='))	
-		
+		$(".right-content").append(pagination(page, pages, host + '/users.html?p='))
+
 		var r
 		$.each(users, function(i, user) {
 			if (i % 3 == 0) {
@@ -95,23 +95,23 @@ $(function(){
 				$('.right-content').append(r)
 			}
 			var u = createUser(user, true)
-			
+
 			r.append(col(4, panel(u)))
 		})
-		
-		$(".right-content").append(pagination(page, pages, host + '/users.html?p='))	
-		
-		
+
+		$(".right-content").append(pagination(page, pages, host + '/users.html?p='))
+
+
 		$('.comment-modal-btn').click(function(){
 			uid = $(this).attr('id')
 			loadReviews(uid)
 		})
-		
+
 		$('.thumb-modal-btn').click(function(){
 			uid = $(this).attr('id')
 			loadThumbs(uid)
 		})
-		
+
 		$('.view-modal-btn').click(function(){
 			uid = $(this).attr('id')
 			loadViews(uid)
@@ -130,12 +130,12 @@ $(function(){
 					  <a href="/users.html" class="list-group-item active">用户列表</a>
 					  <a href="/articles.html" class="list-group-item">文章列表</a>
 					</div>
-				</div>	
-			</div>		
+				</div>
+			</div>
 		</div>
 		<div class="col-md-10 right-content"></div>
 	</div>
-	
+
 <div class="modal fade" id="viewModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
