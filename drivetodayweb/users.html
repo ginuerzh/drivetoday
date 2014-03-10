@@ -84,7 +84,7 @@ $(function(){
 
 		var page = data['response_data']['page_number']
 		var total = data['response_data']['total']
-		var pages = Math.ceil(total / 13)
+		var pages = Math.ceil(total / 12)
 
 		$(".right-content").append(pagination(page, pages, host + '/users.html?p='))
 

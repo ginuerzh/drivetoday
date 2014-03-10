@@ -61,6 +61,11 @@ func (logger *RedisLogger) Close() error {
 	return logger.conn.Close()
 }
 
+func (logger *RedisLogger) Users() int {
+	count, _ := redis.Int(logger.conn.Do("HLEN", redisUserGuest))
+	return count
+}
+
 // log register users per day
 func (logger *RedisLogger) LogRegister(userid string) {
 	logger.conn.Do("SADD", redisStatRegisterPrefix+DateString(time.Now()), userid)

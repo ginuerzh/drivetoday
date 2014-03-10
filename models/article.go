@@ -131,7 +131,9 @@ func GetArticles(articleIds ...string) (articles []Article, errId int) {
 }
 
 func GetBriefArticles(skip, limit int) (total int, articles []Article, errId int) {
-	err := search(articleColl, bson.M{"publish": true}, bson.M{"content": false}, skip, limit, []string{"-pub_time"}, &total, &articles)
+	err := search(articleColl, bson.M{"publish": true},
+		bson.M{"content": false}, skip, limit,
+		[]string{"-weight", "-pub_time"}, &total, &articles)
 	if err != nil {
 		log.Println(err)
 		return 0, nil, errors.DbError
@@ -154,3 +156,27 @@ func RandomArticles(excludes []string, max int) (article []Article, errId int) {
 	}
 }
 */
+
+func (this *Article) SetWeight(weight int) int {
+	var change bson.M
+
+	if weight > 0 {
+		change = bson.M{
+			"$set": bson.M{
+				"weight": weight,
+			},
+		}
+	} else {
+		change = bson.M{
+			"$unset": bson.M{
+				"weight": 1,
+			},
+		}
+	}
+
+	err := updateId(articleColl, this.Id, change)
+	if err != nil {
+		return errors.DbError
+	}
+	return errors.NoError
+}

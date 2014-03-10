@@ -293,7 +293,7 @@ type userListForm struct {
 }
 
 func userListHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form userListForm) {
-	pageSize := DefaultPageSize + 3
+	pageSize := DefaultPageSize + 2
 	total, users, err := models.UserList(pageSize*form.PageNumber, pageSize)
 	if err != errors.NoError {
 		writeResponse(request.RequestURI, resp, nil, err)

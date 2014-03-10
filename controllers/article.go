@@ -14,17 +14,19 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
 const (
-	ArticleListV1Uri     = "/1/article/timelines"
-	ArticleInfoV1Uri     = "/1/article/get"
-	ArticleSetThumbV1Uri = "/1/article/thumb"
-	ArticleThumbedV1Uri  = "/1/article/is_thumbed"
-	ArticleRelatedV1Uri  = "/1/article/related_articles"
-	ArticleViewersV1Uri  = "/1/article/viewers/:id"
-	ArticleThumbsV1Uri   = "/1/article/thumbs/:id"
+	ArticleListV1Uri      = "/1/article/timelines"
+	ArticleInfoV1Uri      = "/1/article/get"
+	ArticleSetThumbV1Uri  = "/1/article/thumb"
+	ArticleThumbedV1Uri   = "/1/article/is_thumbed"
+	ArticleRelatedV1Uri   = "/1/article/related_articles"
+	ArticleViewersV1Uri   = "/1/article/viewers/:id"
+	ArticleThumbsV1Uri    = "/1/article/thumbs/:id"
+	ArticleSetWeightV1Uri = "/1/article/weight/:id/:weight"
 
 	SlopeOneUrl = "http://localhost:8090/slopeone"
 )
@@ -39,6 +41,7 @@ func BindArticleApi(m *martini.ClassicMartini) {
 
 	m.Get(ArticleViewersV1Uri, articleViewersHandler)
 	m.Get(ArticleThumbsV1Uri, articleThumbsHandler)
+	m.Get(ArticleSetWeightV1Uri, articleWeightHandler)
 }
 
 type articleListForm struct {
@@ -409,4 +412,20 @@ func articleThumbsHandler(request *http.Request, resp http.ResponseWriter, param
 	}
 
 	writeResponse(request.RequestURI, resp, jsonStructs, err)
+}
+
+func articleWeightHandler(request *http.Request, resp http.ResponseWriter, params martini.Params) {
+	id := params["id"]
+	log.Println(id, params["weight"])
+	if !bson.IsObjectIdHex(id) {
+		writeResponse(request.RequestURI, resp, nil, errors.JsonError)
+		return
+	}
+
+	weight, _ := strconv.Atoi(params["weight"])
+
+	article := models.Article{Id: bson.ObjectIdHex(id)}
+	err := article.SetWeight(weight)
+
+	writeResponse(request.RequestURI, resp, nil, err)
 }
