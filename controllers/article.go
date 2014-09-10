@@ -3,10 +3,10 @@ package controllers
 
 import (
 	//"encoding/json"
-	"github.com/codegangsta/martini"
-	"github.com/codegangsta/martini-contrib/binding"
 	"github.com/ginuerzh/drivetoday/errors"
 	"github.com/ginuerzh/drivetoday/models"
+	"github.com/martini-contrib/binding"
+	"gopkg.in/go-martini/martini.v1"
 	"labix.org/v2/mgo/bson"
 	"log"
 	//slopeone "github.com/ginuerzh/go-slope-one"
@@ -141,8 +141,8 @@ type articleInfoForm struct {
 func articleInfoHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form articleInfoForm) {
 	userid := redis.OnlineUser(form.AccessToken)
 	if len(userid) == 0 {
-		writeResponse(request.RequestURI, resp, nil, errors.AccessError)
-		return
+		//writeResponse(request.RequestURI, resp, nil, errors.AccessError)
+		//return
 	}
 
 	if len(userid) > 0 {
@@ -213,10 +213,7 @@ type articleThumbForm struct {
 }
 
 func (form *articleThumbForm) Validate(e *binding.Errors, req *http.Request) {
-	if !bson.IsObjectIdHex(form.ArticleId) {
-		e.Fields["id"] = "invalid article id"
-		return
-	}
+
 }
 
 func articleSetThumbHandler(request *http.Request, resp http.ResponseWriter, redis *models.RedisLogger, form articleThumbForm) {

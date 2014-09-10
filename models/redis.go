@@ -115,7 +115,7 @@ func (logger *RedisLogger) LogOnlineUser(accessToken, userid string) {
 
 func (logger *RedisLogger) DelOnlineUser(accessToken string) {
 	conn := logger.conn
-	conn.Send("DEL", redisUserOnlineUserPrefix+accessToken)
+	conn.Do("DEL", redisUserOnlineUserPrefix+accessToken)
 }
 
 func (logger *RedisLogger) Onlines() int {

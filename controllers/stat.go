@@ -2,9 +2,9 @@
 package controllers
 
 import (
-	"github.com/codegangsta/martini"
 	"github.com/ginuerzh/drivetoday/errors"
 	"github.com/ginuerzh/drivetoday/models"
+	"gopkg.in/go-martini/martini.v1"
 	"net/http"
 	"time"
 )

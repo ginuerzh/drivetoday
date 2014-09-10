@@ -7,8 +7,8 @@ import (
 	//"errors"
 	"fmt"
 	//simplejson "github.com/bitly/go-simplejson"
-	"github.com/codegangsta/martini-contrib/binding"
 	errs "github.com/ginuerzh/drivetoday/errors"
+	"github.com/martini-contrib/binding"
 	//"github.com/ginuerzh/drivetoday/models"
 	"github.com/nu7hatch/gouuid"
 	"io"
@@ -23,6 +23,10 @@ import (
 const (
 	TimeFormat      = "2006-01-02 15:04:05"
 	DefaultPageSize = 10
+)
+
+var (
+	weedfs = weedo.NewClient("localhost:9333")
 )
 
 type ImageSize int
@@ -97,11 +101,11 @@ func Uuid() string {
 }
 
 func ErrorHandler(err binding.Errors, request *http.Request, resp http.ResponseWriter) {
-	if err.Count() > 0 {
+	if err.Len() > 0 {
 		errId := errs.JsonError
-		if _, ok := err.Fields["db"]; ok {
+		if err.Has("db") {
 			errId = errs.DbError
-		} else if _, ok = err.Fields["access"]; ok {
+		} else if err.Has("access") {
 			errId = errs.AccessError
 		}
 		resp.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -136,8 +140,7 @@ func imageUrl(fid string, size ImageSize) string {
 		return ""
 	}
 
-	id, _ := strconv.ParseUint(s[0], 10, 64)
-	if url, _, err = weedo.Lookup(id); err != nil {
+	if url, _, err = weedfs.GetUrl(fid); err != nil {
 		return url
 	}
 

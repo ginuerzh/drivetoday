@@ -3,10 +3,10 @@ package controllers
 
 import (
 	"encoding/json"
-	"github.com/codegangsta/martini"
-	"github.com/codegangsta/martini-contrib/binding"
 	"github.com/ginuerzh/drivetoday/errors"
 	"github.com/ginuerzh/drivetoday/models"
+	"github.com/martini-contrib/binding"
+	"gopkg.in/go-martini/martini.v1"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -176,7 +176,7 @@ func guestLogin(redis *models.RedisLogger) (*models.User, int) {
 }
 
 func loginHandler(request *http.Request, resp http.ResponseWriter, form loginForm, redis *models.RedisLogger) {
-	var user *models.User
+	user := &models.User{}
 	var err int
 	accessToken := Uuid()
 

@@ -2,11 +2,11 @@
 package controllers
 
 import (
-	"github.com/codegangsta/martini"
-	"github.com/codegangsta/martini-contrib/binding"
 	"github.com/ginuerzh/drivetoday/errors"
 	"github.com/ginuerzh/drivetoday/models"
 	"github.com/ginuerzh/weedo"
+	"github.com/martini-contrib/binding"
+	"gopkg.in/go-martini/martini.v1"
 	//"io"
 	"time"
 	//"labix.org/v2/mgo/bson"

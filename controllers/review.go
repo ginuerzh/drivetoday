@@ -2,10 +2,10 @@
 package controllers
 
 import (
-	"github.com/codegangsta/martini"
-	"github.com/codegangsta/martini-contrib/binding"
 	"github.com/ginuerzh/drivetoday/errors"
 	"github.com/ginuerzh/drivetoday/models"
+	"github.com/martini-contrib/binding"
+	"gopkg.in/go-martini/martini.v1"
 	"labix.org/v2/mgo/bson"
 	//"log"
 	"net/http"
@@ -36,7 +36,7 @@ type reviewListForm struct {
 
 func (form *reviewListForm) Validate(e *binding.Errors, req *http.Request) {
 	if len(form.ArticleId) > 0 && !bson.IsObjectIdHex(form.ArticleId) {
-		e.Fields["id"] = "invalid article id"
+		e.Add([]string{"id"}, "id", "invalid article id")
 	}
 }
 
@@ -95,7 +95,7 @@ type newReviewForm struct {
 
 func (form *newReviewForm) Validate(e *binding.Errors, req *http.Request) {
 	if !bson.IsObjectIdHex(form.ArticleId) {
-		e.Fields["id"] = "invalid article id"
+		e.Add([]string{"id"}, "id", "invalid article id")
 		return
 	}
 }
@@ -182,7 +182,7 @@ type reviewThumbForm struct {
 
 func (form *reviewThumbForm) Validate(e *binding.Errors, req *http.Request) {
 	if !bson.IsObjectIdHex(form.ReviewId) {
-		e.Fields["id"] = "invalid article id"
+		e.Add([]string{"id"}, "id", "invalid article id")
 		return
 	}
 }
