@@ -144,7 +144,7 @@ func imageUrl(fid string, size ImageSize) string {
 		return ""
 	}
 
-	baseUrl := "http://" + vol.PublicUrl + "/" + s[0] + "/" + s[1]
+	baseUrl := vol.PublicUrl + "/" + s[0] + "/" + s[1]
 
 	if size == ImageOriginal {
 		if len(s) >= 3 {
