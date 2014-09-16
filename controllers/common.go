@@ -133,18 +133,18 @@ func userAuth(accessToken string, e *binding.Errors) (user models.User) {
 }
 */
 func imageUrl(fid string, size ImageSize) string {
-	var url string
+	var vol *weedo.Volume
 	var err error
 	s := strings.Split(fid, ",")
 	if len(s) < 2 {
 		return ""
 	}
 
-	if url, _, err = weedfs.GetUrl(fid); err != nil {
-		return url
+	if vol, err = weedfs.Volume(fid, ""); err != nil {
+		return ""
 	}
 
-	baseUrl := "http://" + url + "/" + s[0] + "/" + s[1]
+	baseUrl := "http://" + vol.PublicUrl + "/" + s[0] + "/" + s[1]
 
 	if size == ImageOriginal {
 		if len(s) >= 3 {
